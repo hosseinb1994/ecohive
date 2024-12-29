@@ -1,0 +1,10 @@
+21:05:50 **** Incremental Build of configuration Debug for project EcoHive ****
+make -j16 all 
+arm-none-eabi-size  EcoHive.elf 
+   text	   data	    bss	    dec	    hex	filename
+  19780	     96	  20744	  40620	   9eac	EcoHive.elf
+Finished building: default.size.stdout
+ 
+
+21:05:51 Build Finished. 0 errors, 0 warnings. (took 246ms)
+

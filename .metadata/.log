@@ -1,0 +1,19 @@
+!SESSION 2024-12-29 19:51:18.001 -----------------------------------------------
+eclipse.buildId=Version 1.15.1
+java.version=17.0.8.1
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=en_US
+Framework arguments:  D:\EcoHive\EcoHive\.cproject
+Command-line arguments:  -os win32 -ws win32 -arch x86_64 D:\EcoHive\EcoHive\.cproject
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2024-12-29 19:52:10.294
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2024-12-29 19:52:10.304
+!MESSAGE Log4j2 initialized with config file D:\EcoHive\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2024-12-29 19:52:13.351
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY org.eclipse.cdt.core 1 0 2024-12-29 19:52:21.179
+!MESSAGE Indexed 'EcoHive' (35 sources, 147 headers) in 5.98 sec: 14,899 declarations; 64,354 references; 9 unresolved inclusions; 1,014 syntax errors; 1,284 unresolved names (1.6%)
