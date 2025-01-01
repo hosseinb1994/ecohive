@@ -1,4 +1,5 @@
 "./Core/Src/GPIO.o"
+"./Core/Src/SPI.o"
 "./Core/Src/UART.o"
 "./Core/Src/freertos.o"
 "./Core/Src/main.o"

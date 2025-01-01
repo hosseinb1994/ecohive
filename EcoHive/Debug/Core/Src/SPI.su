@@ -1,0 +1,2 @@
+../Core/Src/SPI.c:5:6:SPI_Init	4	static
+../Core/Src/SPI.c:34:6:SPI1_Tx_DMA_Init	16	static

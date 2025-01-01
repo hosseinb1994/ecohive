@@ -26,8 +26,8 @@ void Blinking_LED_LD2(void)
 {
         // Toggle PA5 using BSRR
         GPIOA->BSRR = (1U << 5);      // Set PA5 high
-        for (int i = 0; i < 1000000; i++);  // Delay
+        for (int i = 0; i < 500000; i++);  // Delay
 
         GPIOA->BSRR = (1U << (5 + 16));  // Reset PA5 (set bit 5 + 16)
-        for (int i = 0; i < 1000000; i++);  // Delay
+        for (int i = 0; i < 500000; i++);  // Delay
 }
