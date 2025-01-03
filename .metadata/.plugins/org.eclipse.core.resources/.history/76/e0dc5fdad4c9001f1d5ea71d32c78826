@@ -5,7 +5,7 @@
 void GPIOA_Init(void)
 {
     // 1. Enable GPIOA clock
-	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+    RCC->AHB1ENR |= (1U << 0);
 
     // 2. Set Pin 5 as output mode (MODER register: 01 on bits 10-11)
     GPIOA->MODER &= ~(3U << 10);  // Clear bits 10-11

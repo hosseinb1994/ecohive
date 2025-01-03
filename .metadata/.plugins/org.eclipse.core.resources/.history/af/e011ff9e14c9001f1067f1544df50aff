@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-//#include "GPIO.h"
+#include "GPIO.h"
 #include "UART.h"
 #include "SPI.h"
 /* USER CODE END Includes */
@@ -51,7 +51,7 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-//void GPIOA_Init(void);
+void GPIOA_Init(void);
 void UART_Init(void);
 void UART2_Tx_DMA_Init(void * SrcAddr, uint16_t dataSize);
 void SPI_Init(void);
@@ -64,7 +64,7 @@ SemaphoreHandle_t xRecursiveMutex;
 
 void UART_Task(void *pvParameters);
 void SPI_Task(void *pvParameters);
-//void LED_Blinking_Task(void *pvParameters);
+void LED_Blinking_Task(void *pvParameters);
 /* USER CODE END 0 */
 
 /**
@@ -102,23 +102,23 @@ int main(void)
 		  	  "UART&DMA",
 			  128,
 			  NULL,
-			  1,
+			  2,
 			  NULL);
 
   xTaskCreate(SPI_Task,
   		  	  "SPI&DMA",
   			  128,
   			  NULL,
-  			  1,
+  			  3,
   			  NULL);
 
-  /*xTaskCreate(LED_Blinking_Task,
+  xTaskCreate(LED_Blinking_Task,
   		  	  "LED_Blinking",
   			  128,
   			  NULL,
   			  1,
   			  NULL);
-*/
+
   vTaskStartScheduler();
 
   /* USER CODE END 2 */
@@ -218,15 +218,14 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void SPI_Task(void *pvParameters)
 {
-	UART_Init();
 	SPI_Init();
-	const char message[] = "SPI & DMA...\r\n";
-	const char message1[] = "SPI & UART...\r\n";
+	UART_Init();
+	const char message[] = "Hello from SPI & DMA...\r\n";
 	SPI1_Tx_DMA_Init((void *)message, sizeof(message) - 1);
 	while(1){
-		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
-			Print_Message(message1, sizeof(message1) - 1);
-			xSemaphoreGiveRecursive(xRecursiveMutex);
+		if(xQueueSemaphoreTake(xRecursiveMutex, (TickType_t)5) == pdTRUE){
+			Print_Message(message, sizeof(message) - 1);
+			xSemaphoreGive(xRecursiveMutex);
 		}
 		vTaskDelay(1);
 	}
@@ -235,28 +234,27 @@ void SPI_Task(void *pvParameters)
 void UART_Task(void *pvParameters)
 {
 	UART_Init();
-	const char message[] = "UART & DMA...\r\n";
-	const char message1[] = "UART...\r\n";
+	const char message[] = "Hello from UART & DMA...\r\n";
 	UART2_Tx_DMA_Init((void *)message, sizeof(message) - 1);
 	while(1){
-		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
-			Print_Message(message1, sizeof(message1) - 1);
-			xSemaphoreGiveRecursive(xRecursiveMutex);
+		if(xQueueSemaphoreTake(xRecursiveMutex, (TickType_t)5) == pdTRUE){
+			//Print_Message(message1, sizeof(message1) - 1);
+			xSemaphoreGive(xRecursiveMutex);
 		}
 		vTaskDelay(1);
 	}
 }
-/*void LED_Blinking_Task(void *pvParameters)
+void LED_Blinking_Task(void *pvParameters)
 {
 	GPIOA_Init();
 	while(1){
-		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
+		if(xQueueSemaphoreTake(xRecursiveMutex, (TickType_t)5) == pdTRUE){
 			Blinking_LED_LD2();
-			xSemaphoreGiveRecursive(xRecursiveMutex);
+			xSemaphoreGive(xRecursiveMutex);
 		}
 		vTaskDelay(1);
 	}
-}*/
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
