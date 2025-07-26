@@ -22,7 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "GPIO.h"
+#include "UART.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,28 +43,24 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-void StartDefaultTask(void *argument);
 
 /* USER CODE BEGIN PFP */
-
+void GPIOA_Init(void);
+void UART_Init(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+SemaphoreHandle_t xRecursiveMutex;
+void Hearth_beat_Task(void *pvParameters);
+void UART_Task(void *pvParameters);
 /* USER CODE END 0 */
 
 /**
@@ -94,13 +91,27 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
+  xRecursiveMutex = xSemaphoreCreateMutex();
 
+  xTaskCreate(Hearth_beat_Task,
+    		  	  "Heart Beat",
+    			  128,
+    			  NULL,
+    			  1,
+    			  NULL);
+
+  xTaskCreate(UART_Task,
+     		  	  "UART",
+     			  256,
+     			  NULL,
+     			  1,
+     			  NULL);
+
+  vTaskStartScheduler();
   /* USER CODE END 2 */
 
   /* Init scheduler */
-  osKernelInitialize();
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -120,7 +131,6 @@ int main(void)
 
   /* Create the thread(s) */
   /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -131,7 +141,7 @@ int main(void)
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
-  osKernelStart();
+
 
   /* We should never get here as control is now taken by the scheduler */
 
@@ -192,36 +202,37 @@ void SystemClock_Config(void)
   }
 }
 
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOH_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-
-  /*Configure GPIO pins : USART_TX_Pin USART_RX_Pin */
-  GPIO_InitStruct.Pin = USART_TX_Pin|USART_RX_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
-}
 
 /* USER CODE BEGIN 4 */
+
+void Hearth_beat_Task(void *pvParameters)
+{
+	GPIOA_Init();
+	while(1){
+		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
+			Hearth_beat_ON();
+			vTaskDelay(pdMS_TO_TICKS(1000));
+			Hearth_beat_OFF();
+			vTaskDelay(pdMS_TO_TICKS(500));
+			xSemaphoreGiveRecursive(xRecursiveMutex);
+		}
+		vTaskDelay(1);
+	}
+}
+
+void UART_Task(void *pvParameters)
+{
+	UART_Init();
+	const char message1[] = "Hello\r\n";
+	while(1){
+		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
+			Print_Message(message1, sizeof(message1) - 1);
+			vTaskDelay(pdMS_TO_TICKS(1000));
+			xSemaphoreGiveRecursive(xRecursiveMutex);
+		}
+		vTaskDelay(1);
+	}
+}
 
 /* USER CODE END 4 */
 
@@ -231,17 +242,6 @@ static void MX_GPIO_Init(void)
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END 5 */
-}
 
 /**
   * @brief  Period elapsed callback in non blocking mode
