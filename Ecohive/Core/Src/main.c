@@ -223,7 +223,7 @@ void Hearth_beat_Task(void *pvParameters)
 void UART_Task(void *pvParameters)
 {
 	UART_Init();
-	const char message1[] = "Hello\r\n";
+	const char message1[] = "Hello from UART Task\r\n";
 	while(1){
 		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
 			Print_Message(message1, sizeof(message1) - 1);

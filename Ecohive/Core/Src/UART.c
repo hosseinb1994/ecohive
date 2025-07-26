@@ -22,7 +22,8 @@ void UART_Init(void)
     GPIOA->AFR[1] |=  (0x7 << 4);    // AF7 = USART1
 
     // Configure USART1 parameters: 9600 baud, 8 data bits, 1 stop bit
-    USART1->BRR = 0x8890;            // 9600 baud @ 16 MHz
+    //USART1->BRR = 0x8890;            // 9600 baud @ 84 MHz
+    USART1->BRR = 0x2D3;               // 115200 baud @ 84 MHz
     USART1->CR1 |= USART_CR1_TE;     // Enable transmitter
     USART1->CR1 |= USART_CR1_UE;     // Enable USART
 }
