@@ -22,8 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdlib.h>  // for rand()
-#include <stdio.h>   // for sprintf()
+#include <stdlib.h>  //rand()
+#include <stdio.h>   //sprintf()
 #include "GPIO.h"
 #include "UART.h"
 /* USER CODE END Includes */
