@@ -22,6 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdlib.h>  // for rand()
+#include <stdio.h>   // for sprintf()
 #include "GPIO.h"
 #include "UART.h"
 /* USER CODE END Includes */
@@ -223,10 +225,18 @@ void Hearth_beat_Task(void *pvParameters)
 void UART_Task(void *pvParameters)
 {
 	UART_Init();
-	const char message1[] = "Hello from UART Task\r\n";
+	//const char message1[] = "Hello from UART Task\r\n";
+	char buffer[64];
+	float sensor_value;
 	while(1){
 		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
-			Print_Message(message1, sizeof(message1) - 1);
+			//Print_Message(message1, sizeof(message1) - 1);
+			// Generate a random float between 0.0 and 100.0
+			sensor_value = (float)(rand() % 10000) / 100.0f;
+			// Convert float to string
+			int len = sprintf(buffer, "Sensor Value: %.2f\r\n", sensor_value);
+			// Send over UART
+			Print_Message(buffer, len);
 			vTaskDelay(pdMS_TO_TICKS(1000));
 			xSemaphoreGiveRecursive(xRecursiveMutex);
 		}

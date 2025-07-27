@@ -1,5 +1,0 @@
-../Core/Src/UART.c:4:6:UART_Init	1
-../Core/Src/UART.c:31:6:UART2_Tx_DMA_Init	2
-../Core/Src/UART.c:63:6:Send_Data	3
-../Core/Src/UART.c:70:6:Print_Message	2
-../Core/Src/UART.c:102:6:Split_Bits	2
