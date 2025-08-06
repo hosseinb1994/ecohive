@@ -210,9 +210,12 @@ void SystemClock_Config(void)
 void Hearth_beat_Task(void *pvParameters)
 {
 	GPIOA_Init();
+	UART_Init();
+	const char Hearth_beat[] = "Heart beat\r\n";
 	while(1){
 		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
 			Hearth_beat_ON();
+			Print_Message(Hearth_beat, sizeof(Hearth_beat)-1);
 			vTaskDelay(pdMS_TO_TICKS(1000));
 			Hearth_beat_OFF();
 			vTaskDelay(pdMS_TO_TICKS(500));
