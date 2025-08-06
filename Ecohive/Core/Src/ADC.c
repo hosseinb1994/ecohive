@@ -16,4 +16,5 @@ void ADC_Init()
 	//Disable pull-up/pull-down on PA0
 	GPIOA->PUPDR &= ~(0x3 << 0);
 
+
 }
