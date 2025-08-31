@@ -1,0 +1,4 @@
+../Core/Src/ADC.c:4:6:ADC_Init	4	static
+../Core/Src/ADC.c:40:10:ADC_ReadChannel	16	static
+../Core/Src/ADC.c:57:7:ADC_ReadTempSensor	24	static
+../Core/Src/ADC.c:70:7:ADC_ReadVref	16	static

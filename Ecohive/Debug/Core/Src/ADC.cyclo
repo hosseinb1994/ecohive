@@ -1,0 +1,4 @@
+../Core/Src/ADC.c:4:6:ADC_Init	1
+../Core/Src/ADC.c:40:10:ADC_ReadChannel	2
+../Core/Src/ADC.c:57:7:ADC_ReadTempSensor	1
+../Core/Src/ADC.c:70:7:ADC_ReadVref	1

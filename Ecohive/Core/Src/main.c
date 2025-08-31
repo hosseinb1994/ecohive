@@ -26,6 +26,7 @@
 #include <stdio.h>   //sprintf()
 #include "GPIO.h"
 #include "UART.h"
+#include "ADC.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,6 +57,7 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 void GPIOA_Init(void);
 void UART_Init(void);
+void ADC_Init(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -63,6 +65,8 @@ void UART_Init(void);
 SemaphoreHandle_t xRecursiveMutex;
 void Hearth_beat_Task(void *pvParameters);
 void UART_Task(void *pvParameters);
+void MCU_Temperature_Task(void *pvParameters);
+void MQ9_Task(void *pvParameters);
 /* USER CODE END 0 */
 
 /**
@@ -94,6 +98,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
+  //Priorities of tasks must be consider for better operation
   xRecursiveMutex = xSemaphoreCreateMutex();
 
   xTaskCreate(Hearth_beat_Task,
@@ -109,6 +114,18 @@ int main(void)
      			  NULL,
      			  1,
      			  NULL);
+  xTaskCreate(MCU_Temperature_Task,
+      		  	  "MCU Temp",
+      			  256,
+      			  NULL,
+      			  1,
+      			  NULL);
+  xTaskCreate(MQ9_Task,
+        		  "MQ9 Temp",
+        		  256,
+        		  NULL,
+				  1,
+        		  NULL);
 
   vTaskStartScheduler();
   /* USER CODE END 2 */
@@ -230,14 +247,56 @@ void UART_Task(void *pvParameters)
 	UART_Init();
 	//const char message1[] = "Hello from UART Task\r\n";
 	char buffer[64];
-	float sensor_value;
+	float Random_value;
 	while(1){
 		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
 			//Print_Message(message1, sizeof(message1) - 1);
 			// Generate a random float between 0.0 and 100.0
-			sensor_value = (float)(rand() % 10000) / 100.0f;
+			Random_value = (float)(rand() % 10000) / 100.0f;
 			// Convert float to string
-			int len = sprintf(buffer, "Sensor Value: %.2f\r\n", sensor_value);
+			int len = sprintf(buffer, "Random Value: %.2f\r\n", Random_value);
+			// Send over UART
+			Print_Message(buffer, len);
+			vTaskDelay(pdMS_TO_TICKS(1000));
+			xSemaphoreGiveRecursive(xRecursiveMutex);
+		}
+		vTaskDelay(1);
+	}
+}
+void MCU_Temperature_Task(void *pvParameters)
+{
+	UART_Init();
+	ADC_Init();
+	char buffer[64];
+	float temperature;
+	while(1){
+		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
+			// Read internal temperature sensor
+			temperature = ADC_ReadTempSensor();  // °C
+			//float ADC_ReadTempSensor(void)
+			// Convert float to string
+			int len = sprintf(buffer, "Temp Value: %.2f\r\n", temperature);
+			// Send over UART
+			Print_Message(buffer, len);
+			vTaskDelay(pdMS_TO_TICKS(1000));
+			xSemaphoreGiveRecursive(xRecursiveMutex);
+		}
+		vTaskDelay(1);
+	}
+}
+void MQ9_Task(void *pvParameters)
+{
+	//Value needs to be calibrated!
+	UART_Init();
+	ADC_Init();
+	char buffer[64];
+	float MQ9;
+	while(1){
+		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
+			// Read internal temperature sensor
+			MQ9 = ADC_ReadChannel(0);
+			// Convert float to string
+			int len = sprintf(buffer, "MQ9 Value: %.2f\r\n", MQ9);
 			// Send over UART
 			Print_Message(buffer, len);
 			vTaskDelay(pdMS_TO_TICKS(1000));
