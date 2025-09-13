@@ -1,8 +1,8 @@
-../Core/Src/main.c:76:5:main	16	static
-../Core/Src/main.c:181:6:SystemClock_Config	88	static
-../Core/Src/main.c:226:6:Hearth_beat_Task	40	static
-../Core/Src/main.c:244:6:UART_Task	88	static
-../Core/Src/main.c:265:6:MCU_Temperature_Task	88	static
-../Core/Src/main.c:286:6:MQ9_Task	88	static
-../Core/Src/main.c:324:6:HAL_TIM_PeriodElapsedCallback	16	static
-../Core/Src/main.c:341:6:Error_Handler	4	static,ignoring_inline_asm
+../Core/Src/main.c:77:5:main	16	static
+../Core/Src/main.c:184:6:SystemClock_Config	88	static
+../Core/Src/main.c:229:6:Hearth_beat_Task	40	static
+../Core/Src/main.c:247:6:UART_Task	88	static
+../Core/Src/main.c:268:6:MCU_Temperature_Task	88	static
+../Core/Src/main.c:289:6:MQ9_Task	152	static
+../Core/Src/main.c:333:6:HAL_TIM_PeriodElapsedCallback	16	static
+../Core/Src/main.c:350:6:Error_Handler	4	static,ignoring_inline_asm

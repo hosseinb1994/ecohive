@@ -27,6 +27,7 @@
 #include "GPIO.h"
 #include "UART.h"
 #include "ADC.h"
+#include "Math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -108,12 +109,13 @@ int main(void)
     			  1,
     			  NULL);
 
-  xTaskCreate(UART_Task,
+  /*xTaskCreate(UART_Task,
      		  	  "UART",
      			  256,
      			  NULL,
      			  1,
      			  NULL);
+     			  */
   xTaskCreate(MCU_Temperature_Task,
       		  	  "MCU Temp",
       			  256,
@@ -286,24 +288,29 @@ void MCU_Temperature_Task(void *pvParameters)
 }
 void MQ9_Task(void *pvParameters)
 {
-	//Value needs to be calibrated!
 	UART_Init();
-	ADC_Init();
-	char buffer[64];
-	float MQ9;
-	while(1){
-		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
-			// Read internal temperature sensor
-			MQ9 = ADC_ReadChannel(0);
-			// Convert float to string
-			int len = sprintf(buffer, "MQ9 Value: %.2f\r\n", MQ9);
-			// Send over UART
-			Print_Message(buffer, len);
-			vTaskDelay(pdMS_TO_TICKS(1000));
-			xSemaphoreGiveRecursive(xRecursiveMutex);
-		}
-		vTaskDelay(1);
-	}
+	    ADC_Init();
+	    char buffer[64];
+
+	    while(1){
+	        if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
+
+	            uint16_t raw = ADC_ReadChannel(0);   // ADC raw counts
+	            float Rs = MQ9_GetRs(raw);           // sensor resistance
+	            float ratio = Rs / Ro_MQ9;           // Rs/Ro
+	            float ppm = MQ9_GetPPM(ratio);       // estimated ppm
+
+	            int len = sprintf(buffer,
+	                              "MQ9 raw=%u, Rs=%.1f Ohm, ratio=%.2f, ppm=%.1f\r\n",
+	                              raw, Rs, ratio, ppm);
+
+	            Print_Message(buffer, len);
+
+	            vTaskDelay(pdMS_TO_TICKS(1000));
+	            xSemaphoreGiveRecursive(xRecursiveMutex);
+	        }
+	        vTaskDelay(1);
+	    }
 }
 
 /* USER CODE END 4 */

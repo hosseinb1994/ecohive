@@ -1,4 +1,3 @@
-#include "stm32f4xx.h"
 #include "ADC.h"
 
 void ADC_Init()
@@ -21,11 +20,20 @@ void ADC_Init()
 	ADC1->CR2 = 0;           // Right alignment, single conversion
 	ADC1->SQR3 = 0;          // First conversion in regular sequence = channel 0
 
-	// Enable ADC1
-	ADC1->CR2 |= ADC_CR2_ADON;
+    // Enable temperature sensor and VREFINT
+    ADC->CCR |= ADC_CCR_TSVREFE;
 
-	// Enable internal channels (temperature sensor + VREFINT + VBAT)
-	ADC->CCR |= ADC_CCR_TSVREFE | ADC_CCR_VBATE;
+    // Set long sample times for internal channels
+    // Temp sensor (channel 16), VREFINT (channel 17), VBAT (channel 18)
+    ADC1->SMPR1 |= (7u << 18); // channel 16 max sample time
+    ADC1->SMPR1 |= (7u << 21); // channel 17 max sample time
+    ADC1->SMPR1 |= (7u << 24); // channel 18 max sample time
+
+    // External channel 0 also long sample (safe)
+    ADC1->SMPR2 |= (7u << 0);
+
+    // Enable ADC1
+    ADC1->CR2 |= ADC_CR2_ADON;
 
 }
 /*
@@ -53,22 +61,27 @@ uint16_t ADC_ReadChannel(uint8_t channel)
 
 // === Internal channels ===
 
-// Temperature sensor (IN18)
+// Temperature sensor (channel 16)
 float ADC_ReadTempSensor(void)
 {
-    uint16_t raw = ADC_ReadChannel(18);
-    float V_sense = (3.3f * raw) / 4095.0f; // convert ADC to volts
+    uint16_t raw = ADC_ReadChannel(16);
 
-    // Datasheet values
-    float V25 = 0.76f;        // V at 25 °C
+    // Estimate Vdda using VREFINT
+    uint16_t vref_raw = ADC_ReadChannel(17);
+    float Vdda = 1.21f * 4095.0f / (float)vref_raw;
+
+    // Voltage on temp sensor
+    float Vsense = (raw * Vdda) / 4095.0f;
+
+    float V25 = 0.76f;         // voltage at 25°C
     float Avg_Slope = 0.0025f; // 2.5 mV/°C
 
-    return ((V_sense - V25) / Avg_Slope) + 25.0f;
+    return ((Vsense - V25) / Avg_Slope) + 25.0f;
 }
 
-// VREFINT (IN17)
+// VREFINT (channel 17)
 float ADC_ReadVref(void)
 {
     uint16_t raw = ADC_ReadChannel(17);
-    return (3.3f * raw) / 4095.0f;
+    return (3.3f * raw) / 4095.0f; // Vdda = 3.3 V
 }
