@@ -1,0 +1,9 @@
+ToolChainManager/order/0.id=gcc-arm-/usr/bin/arm-none-eabi-gcc
+ToolChainManager/order/0.type=org.eclipse.cdt.build.gcc
+ToolChainManager/order/1.id=gcc-arm-/bin/arm-none-eabi-gcc
+ToolChainManager/order/1.type=org.eclipse.cdt.build.gcc
+ToolChainManager/order/2.id=gcc--/usr/bin/arm-none-eabi-gcc
+ToolChainManager/order/2.type=org.eclipse.cdt.build.gcc
+ToolChainManager/order/n=2
+eclipse.preferences.version=1
+macros/workspace=<?xml version\="1.0" encoding\="UTF-8" standalone\="no"?>\n<macros/>\n

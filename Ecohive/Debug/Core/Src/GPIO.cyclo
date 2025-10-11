@@ -1,3 +1,0 @@
-../Core/Src/GPIO.c:5:6:GPIOA_Init	1
-../Core/Src/GPIO.c:25:6:Hearth_beat_ON	1
-../Core/Src/GPIO.c:31:6:Hearth_beat_OFF	1
