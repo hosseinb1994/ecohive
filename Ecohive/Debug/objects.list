@@ -1,4 +1,5 @@
 "./Core/Src/ADC.o"
+"./Core/Src/AM2302.o"
 "./Core/Src/GPIO.o"
 "./Core/Src/Math.o"
 "./Core/Src/UART.o"

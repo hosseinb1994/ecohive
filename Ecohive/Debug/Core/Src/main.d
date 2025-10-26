@@ -44,7 +44,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h \
  ../Core/Inc/GPIO.h ../Core/Inc/UART.h ../Core/Inc/ADC.h \
- ../Core/Inc/Math.h
+ ../Core/Inc/Math.h ../Core/Inc/AM2302.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 ../Core/Inc/stm32f4xx_hal_conf.h:
@@ -94,3 +94,4 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Inc/UART.h:
 ../Core/Inc/ADC.h:
 ../Core/Inc/Math.h:
+../Core/Inc/AM2302.h:

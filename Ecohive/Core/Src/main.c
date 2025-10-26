@@ -30,6 +30,7 @@
 #include "UART.h"
 #include "ADC.h"
 #include "Math.h"
+#include "AM2302.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,10 +67,12 @@ void ADC_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 SemaphoreHandle_t xRecursiveMutex;
+SemaphoreHandle_t xUARTMutex;
 void Hearth_beat_Task(void *pvParameters);
 void UART_Task(void *pvParameters);
 void MCU_Temperature_Task(void *pvParameters);
 void MQ9_Task(void *pvParameters);
+void AM2302_Task(void *pvParameters);
 /* USER CODE END 0 */
 
 /**
@@ -103,6 +106,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   //Priorities of tasks must be consider for better operation
   xRecursiveMutex = xSemaphoreCreateMutex();
+  xUARTMutex = xSemaphoreCreateMutex();
 
   xTaskCreate(Hearth_beat_Task,
     		  	  "Heart Beat",
@@ -130,6 +134,12 @@ int main(void)
         		  NULL,
 				  1,
         		  NULL);
+  xTaskCreate(AM2302_Task,
+              	  "AM2302 Sensor",
+				  256,    // Increased stack for sensor operations
+				  NULL,
+				  1,      // Same priority as other sensor tasks
+				  NULL);
 
   vTaskStartScheduler();
   /* USER CODE END 2 */
@@ -314,6 +324,45 @@ void MQ9_Task(void *pvParameters)
 	        vTaskDelay(1);
 	    }
 }
+
+
+void AM2302_Task(void *pvParameters) {
+    UART_Init();
+    AM2302_Init();
+    char buffer[128];
+    float temperature, humidity;
+
+    vTaskDelay(pdMS_TO_TICKS(2000));  // Wait for system to stabilize
+
+    Print_Message("AM2302 Task Started\r\n", 21);
+
+    while(1) {
+        if(xSemaphoreTake(xUARTMutex, (TickType_t)500) == pdTRUE) {  // Use UART mutex with longer timeout
+            Print_Message("AM2302 - Attempting to read...\r\n", 31);
+
+            if (AM2302_Read(&temperature, &humidity)) {
+                // Success - format and print data
+                int len = sprintf(buffer,
+                                 "AM2302 - Temp: %.1f°C, Humidity: %.1f%%\r\n",
+                                 temperature, humidity);
+                Print_Message(buffer, len);
+            } else {
+                // Error reading sensor
+                Print_Message("AM2302 - Read error\r\n", 21);
+            }
+
+            xSemaphoreGive(xUARTMutex);
+        } else {
+            Print_Message("AM2302 - Could not get UART mutex\r\n", 34);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(3000));  // 3 seconds between attempts
+    }
+}
+
+
+
+
 
 /* USER CODE END 4 */
 

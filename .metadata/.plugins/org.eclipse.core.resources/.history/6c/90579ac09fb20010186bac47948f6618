@@ -1,0 +1,7 @@
+#ifndef INC_AM2302_H_
+#define INC_AM2302_H_
+
+#include "stm32f4xx.h"
+
+
+#endif /* INC_AM2302_H_ */

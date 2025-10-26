@@ -1,0 +1,17 @@
+#ifndef INC_AM2302_H_
+#define INC_AM2302_H_
+
+#include "stm32f4xx.h"
+#include "UART.h"
+
+void delay_us(uint32_t us);
+void AM2302_Init(void);
+uint8_t AM2302_Start(void);
+uint8_t AM2302_ReadBit(void);
+uint8_t AM2302_ReadByte(void);
+uint8_t AM2302_Read(float *temperature, float *humidity);
+
+
+
+
+#endif /* INC_AM2302_H_ */

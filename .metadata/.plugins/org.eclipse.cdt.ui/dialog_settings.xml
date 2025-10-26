@@ -14,4 +14,18 @@
 	<section name="OptionalMessageDialog.hide.">
 		<item key="askReindex.detail" value="0"/>
 	</section>
+	<section name="NewHeaderFileCreationWizard.dialogBounds">
+		<item key="DIALOG_X_ORIGIN" value="624"/>
+		<item key="DIALOG_Y_ORIGIN" value="274"/>
+		<item key="DIALOG_WIDTH" value="613"/>
+		<item key="DIALOG_HEIGHT" value="459"/>
+		<item key="DIALOG_FONT_NAME" value="1|Ubuntu Sans|11.0|0|GTK|1|"/>
+	</section>
+	<section name="NewSourceFileCreationWizard.dialogBounds">
+		<item key="DIALOG_X_ORIGIN" value="624"/>
+		<item key="DIALOG_Y_ORIGIN" value="274"/>
+		<item key="DIALOG_WIDTH" value="613"/>
+		<item key="DIALOG_HEIGHT" value="459"/>
+		<item key="DIALOG_FONT_NAME" value="1|Ubuntu Sans|11.0|0|GTK|1|"/>
+	</section>
 </section>

@@ -1,20 +1,14 @@
-23:46:19 **** Incremental Build of configuration Debug for project Ecohive ****
+22:57:28 **** Incremental Build of configuration Debug for project Ecohive ****
 make -j16 all 
-arm-none-eabi-gcc -o "Ecohive.elf" @"objects.list"   -mcpu=cortex-m4 -T"/home/hossein/Data/WorkPlace/ecohive/Ecohive/STM32F401RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Ecohive.map" -Wl,--gc-sections -static -u _printf_float --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
-Finished building target: Ecohive.elf
- 
 arm-none-eabi-size  Ecohive.elf 
-arm-none-eabi-objdump -h -S Ecohive.elf  > "Ecohive.list"
    text	   data	    bss	    dec	    hex	filename
-  44392	    476	  20740	  65608	  10048	Ecohive.elf
+  47768	    476	  20748	  68992	  10d80	Ecohive.elf
 Finished building: default.size.stdout
  
-Finished building: Ecohive.list
- 
-23:46:22 **** Incremental Build of configuration Debug for project Ecohive ****
+22:57:31 **** Incremental Build of configuration Debug for project Ecohive ****
 make -j16 all 
 arm-none-eabi-size  Ecohive.elf 
    text	   data	    bss	    dec	    hex	filename
-  44392	    476	  20740	  65608	  10048	Ecohive.elf
+  47768	    476	  20748	  68992	  10d80	Ecohive.elf
 Finished building: default.size.stdout
  
