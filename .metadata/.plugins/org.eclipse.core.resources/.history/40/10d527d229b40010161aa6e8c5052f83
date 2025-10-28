@@ -337,7 +337,7 @@ void AM2302_Task(void *pvParameters) {
     Print_Message("AM2302 Task Started\r\n", 21);
 
     while(1) {
-        if(xSemaphoreTake(xUARTMutex, (TickType_t)10) == pdTRUE) {  // Use UART mutex with longer timeout
+        if(xSemaphoreTake(xUARTMutex, (TickType_t)500) == pdTRUE) {  // Use UART mutex with longer timeout
             Print_Message("AM2302 - Attempting to read...\r\n", 31);
 
             if (AM2302_Read(&temperature, &humidity)) {

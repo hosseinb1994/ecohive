@@ -14,7 +14,7 @@ GND  →   GND
 #define AM2302_SDA_PIN GPIO_PIN_5
 #define AM2302_SDA_PORT GPIOB
 
-// Timing definitions
+// Timing definitions (microseconds)
 #define AM2302_START_LOW_TIME 1000  // 1ms
 #define AM2302_RESPONSE_TIMEOUT 1000
 
