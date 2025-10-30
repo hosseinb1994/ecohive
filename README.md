@@ -1,13 +1,15 @@
 # Ecohive IoT Project
 
-This project is a **sample IoT system** demonstrating environmental data collection, local monitoring, and cloud integration using **Bare-Metal C** and **FreeRTOS** on an STM32 microcontroller.
+This project is a **sample IoT system** demonstrating environmental data collection, local monitoring, and cloud integration using **Bare-Metal C** and **FreeRTOS** on an STM32 microcontroller.  
+The project is **developed and deployed using STM32CubeIDE**, with project management via **Jira** and version control via **Git**.
 
 ---
 
 ## 🧩 Overview
 The system reads multiple sensors (gas, temperature, humidity) and sends their data to an **ESP32** via **SPI**.  
 The ESP32 then transmits the collected data to the **AWS IoT Cloud** using **Wi-Fi (MQTT)** protocol.  
-A UART terminal provides local monitoring, and a heartbeat LED indicates system health.
+A UART terminal provides local monitoring, and a heartbeat LED indicates system health.  
+All software development and deployment are done via **STM32CubeIDE**.
 
 ---
 
@@ -51,7 +53,9 @@ A UART terminal provides local monitoring, and a heartbeat LED indicates system 
 - **FreeRTOS** handles multitasking and peripheral management  
 - Each peripheral implemented in its own `.c` / `.h` driver file  
 - **Heartbeat LED (PA5)** and UART log ensure active operation  
-- Data securely sent to AWS IoT via **ESP32 using MQTT over Wi-Fi**
+- Data securely sent to AWS IoT via **ESP32 using MQTT over Wi-Fi**  
+- Software developed and deployed using **STM32CubeIDE**  
+- Project management with **Jira** and version control with **Git**
 
 ---
 
@@ -60,6 +64,9 @@ A UART terminal provides local monitoring, and a heartbeat LED indicates system 
 - **FreeRTOS** for task scheduling and timing  
 - **MQTT** protocol for cloud communication  
 - **AWS IoT Core** as cloud backend  
+- **STM32CubeIDE** for development, debugging, and deployment  
+- **Jira** for project management  
+- **Git** for version control
 
 ---
 
