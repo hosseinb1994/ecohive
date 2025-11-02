@@ -1,0 +1,12 @@
+../Core/Src/SPI.c:47:6:SPI_Init	32	static
+../Core/Src/SPI.c:100:6:SPI_DeInit	16	static
+../Core/Src/SPI.c:116:6:SPI_Transmit	32	static
+../Core/Src/SPI.c:144:6:SPI_Receive	32	static
+../Core/Src/SPI.c:178:6:SPI_TransmitReceive	32	static
+../Core/Src/SPI.c:216:6:SPI_CheckCRCError	16	static
+../Core/Src/SPI.c:225:6:SPI_ClearCRC	24	static
+../Core/Src/SPI.c:237:6:SPI_Enable	16	static
+../Core/Src/SPI.c:244:6:SPI_Disable	16	static
+../Core/Src/SPI.c:252:17:SPI_GetPrescaler	24	static
+../Core/Src/SPI.c:277:13:SPI_GPIO_Init	40	static
+../Core/Src/SPI.c:323:13:SPI_Clock_Enable	16	static

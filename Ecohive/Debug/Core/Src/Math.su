@@ -1,2 +1,2 @@
-../Core/Src/Math.c:13:7:MQ9_GetRs	24	static
-../Core/Src/Math.c:21:7:MQ9_GetPPM	32	static
+../Core/Src/Math.c:53:7:MQ9_GetRs	24	static
+../Core/Src/Math.c:64:7:MQ9_GetPPM	32	static

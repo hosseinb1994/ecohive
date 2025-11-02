@@ -158,7 +158,7 @@ int main(void)
         		  "MQ9 Temp",
         		  256,
         		  NULL,
-				  1,
+				  2,
         		  NULL);
   xTaskCreate(AM2302_Task,
               	  "AM2302 Sensor",
@@ -299,129 +299,6 @@ void SPI2_Init(void)
     UART_Init();
     Print_Message("SPI2 Initialized for ESP32 communication\r\n", 41);
 }
-
-/**
-  * @brief Update global sensor data (thread-safe)
-  */
-void Update_Sensor_Data(float mcu_temp, float mq9, float am2302_temp, float am2302_hum)
-{
-    if(xSemaphoreTake(xSPIMutex, (TickType_t)10) == pdTRUE) {
-        current_mcu_temp = mcu_temp;
-        current_mq9_ppm = mq9;
-        current_am2302_temp = am2302_temp;
-        current_am2302_humidity = am2302_hum;
-        xSemaphoreGive(xSPIMutex);
-    }
-}
-
-/**
-  * @brief Calculate simple checksum for data integrity
-  */
-uint8_t Calculate_Checksum(uint8_t *data, uint32_t size)
-{
-    uint8_t checksum = 0;
-    for(uint32_t i = 0; i < size; i++) {
-        checksum ^= data[i];  // Simple XOR checksum
-    }
-    return checksum;
-}
-
-/**
-  * @brief Prepare sensor data structure for SPI transmission
-  */
-void Prepare_SPI_Data(SensorData_t *sensor_data)
-{
-    // Get current sensor data (thread-safe)
-    if(xSemaphoreTake(xSPIMutex, (TickType_t)10) == pdTRUE) {
-        sensor_data->mcu_temperature = current_mcu_temp;
-        sensor_data->mq9_ppm = current_mq9_ppm;
-        sensor_data->am2302_temperature = current_am2302_temp;
-        sensor_data->am2302_humidity = current_am2302_humidity;
-        xSemaphoreGive(xSPIMutex);
-    }
-
-    // Add timestamp (FreeRTOS tick count converted to milliseconds)
-    sensor_data->timestamp = xTaskGetTickCount() * portTICK_PERIOD_MS;
-
-    // Calculate checksum
-    sensor_data->checksum = Calculate_Checksum((uint8_t*)sensor_data, sizeof(SensorData_t) - 1);
-}
-
-/**
-  * @brief New task to send sensor data to ESP32 via SPI
-  */
-void SPI_Sensor_Data_Task(void *pvParameters)
-{
-    char debug_buffer[128];
-    SensorData_t sensor_data;
-    uint8_t tx_buffer[sizeof(SensorData_t)];
-    uint8_t rx_buffer[sizeof(SensorData_t)];
-
-    // Wait a bit for other sensors to start producing data
-    vTaskDelay(pdMS_TO_TICKS(3000));
-
-    UART_Init();
-    Print_Message("SPI Sensor Data Task Started\r\n", 30);
-
-    while(1) {
-        // Prepare the sensor data structure
-        Prepare_SPI_Data(&sensor_data);
-
-        // Copy to transmission buffer
-        memcpy(tx_buffer, &sensor_data, sizeof(SensorData_t));
-
-        // Send data via SPI (thread-safe)
-        if(xSemaphoreTake(xSPIMutex, (TickType_t)20) == pdTRUE) {
-            // Select ESP32 (set NSS low)
-            GPIOC->ODR &= ~GPIO_ODR_OD0;
-
-            // Send data via SPI (full duplex)
-            bool success = SPI_TransmitReceive(&hspi2, tx_buffer, rx_buffer, sizeof(SensorData_t));
-
-            // Deselect ESP32 (set NSS high)
-            GPIOC->ODR |= GPIO_ODR_OD0;
-
-            xSemaphoreGive(xSPIMutex);
-
-            // Debug output
-            if(success) {
-                int len = sprintf(debug_buffer,
-                    "SPI Sent: MCU:%.1fC, MQ9:%.1fppm, DHT:%.1fC/%.1f%%\r\n",
-                    sensor_data.mcu_temperature,
-                    sensor_data.mq9_ppm,
-                    sensor_data.am2302_temperature,
-                    sensor_data.am2302_humidity);
-
-                if(xSemaphoreTake(xUARTMutex, (TickType_t)10) == pdTRUE) {
-                    Print_Message(debug_buffer, len);
-                    xSemaphoreGive(xUARTMutex);
-                }
-            } else {
-                if(xSemaphoreTake(xUARTMutex, (TickType_t)10) == pdTRUE) {
-                    Print_Message("SPI Transmission Failed\r\n", 26);
-                    xSemaphoreGive(xUARTMutex);
-                }
-            }
-
-            // Check for CRC errors
-            if(SPI_CheckCRCError(&hspi2)) {
-                if(xSemaphoreTake(xUARTMutex, (TickType_t)10) == pdTRUE) {
-                    Print_Message("SPI CRC Error Detected\r\n", 25);
-                    xSemaphoreGive(xUARTMutex);
-                }
-                SPI_ClearCRC(&hspi2);
-            }
-        }
-
-        // Wait before next transmission
-        vTaskDelay(pdMS_TO_TICKS(SPI_DATA_RATE_MS));
-    }
-}
-
-
-
-
-
 
 void Hearth_beat_Task(void *pvParameters)
 {
