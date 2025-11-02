@@ -61,9 +61,6 @@ void Hearth_beat_ON(void)
         GPIOA->BSRR = (1U << 5);      // Set PA5 high
 }
 
-/**
- * @brief Turns OFF the heartbeat LED (PA5 low).
- */
 void Hearth_beat_OFF(void)
 {
 	    GPIOA->BSRR = (1U << (5 + 16));  // Reset PA5 (set bit 5 + 16)

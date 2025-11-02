@@ -46,9 +46,6 @@
 // This must be determined experimentally in clean air
 float Ro_MQ9 = 10000.0f; // placeholder, to be calibrated
 
-/**
- * @brief Calculates the sensor resistance (Rs) based on ADC reading.
- */
 // Convert ADC raw to sensor resistance Rs
 float MQ9_GetRs(uint16_t adc_raw)
 {
@@ -57,9 +54,6 @@ float MQ9_GetRs(uint16_t adc_raw)
     return RL_MQ9 * (VCC_MQ9 - Vout) / Vout;      // Rs formula
 }
 
-/**
- * @brief Estimates CO gas concentration in ppm using Rs/Ro ratio.
- */
 // Estimate ppm (example curve for CO, rough!)
 float MQ9_GetPPM(float Rs_Ro)
 {

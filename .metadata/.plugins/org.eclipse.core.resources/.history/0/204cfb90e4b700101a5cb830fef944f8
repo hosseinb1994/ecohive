@@ -1,32 +1,3 @@
-/******************************************************************************
- * @file           : UART.c
- * @brief          : UART transmitter driver implementation using UART1 (PA9)
- *                   with optional DMA TX support on STM32F4xx MCUs
- * @author         : Hossein Baghaei
- * @date           : 02-Nov-2025
- * @version        : 1.1
- *
- * @details
- * Implements UART1 TX functionality for serial communication and provides
- * both blocking and DMA-assisted transmission methods.
- *
- * DMA Configuration Mapping:
- * ------------------------------------------------------
- * Peripheral : USART1_TX
- * DMA        : DMA2, Stream 7, Channel 4
- * GPIO Pin   : PA9 (AF7)
- * ------------------------------------------------------
- *
- * @note
- * - DMA mode requires enabling DMA interrupt handler if events are needed.
- * - RX support can be added using UART CR1 RE and pins configuration.
- * - `Print_Message()` allocates memory dynamically; use with caution in RT tasks.
- *
- * @todo
- * - Add UART reception (polling, IRQ & DMA)
- * - Introduce ring buffer for non-blocking print
- *
- ******************************************************************************/
 #include "stm32f4xx.h"
 #include "UART.h"
 

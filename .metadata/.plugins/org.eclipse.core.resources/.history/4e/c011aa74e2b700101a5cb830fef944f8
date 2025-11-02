@@ -1,42 +1,5 @@
-/******************************************************************************
- * @file           : ADC.c
- * @brief          : ADC1 driver implementation for STM32F4xx microcontrollers
- * @author         : Hossein Baghaei
- * @date           : 02-Nov-2025
- * @version        : 1.0
- *
- * @details
- * This file provides implementation for ADC1 initialization and reading from
- * external and internal channels on STM32F4xx series.
- *
- * The driver configures PA0 (ADC Channel 0) as analog input and enables
- * internal temperature sensor and VREFINT for monitoring device parameters.
- *
- * Supported Channels:
- *  ---------------------------------------------------
- *  Channel | Source
- *  ---------------------------------------------------
- *  0       | External analog input (PA0)
- *  16      | Internal temperature sensor
- *  17      | Internal reference voltage (VREFINT)
- *  18      | Battery voltage (VBAT, optional)
- *  ---------------------------------------------------
- *
- * @note
- *  - The temperature calculation uses factory calibration constants:
- *      * V25 = 0.76V (at 25°C)
- *      * Avg_Slope = 2.5 mV/°C
- *  - ADC1 clock must be enabled on APB2 bus before conversion.
- *
- * @todo
- *  - Add multi-channel scanning mode
- *  - Implement DMA-based data acquisition
- ******************************************************************************/
 #include "ADC.h"
 
-/**
- * @brief Initializes GPIOA and ADC1 for single-channel analog conversion.
- */
 void ADC_Init()
 {
 	//Enable GPIOA clock
@@ -73,12 +36,6 @@ void ADC_Init()
     ADC1->CR2 |= ADC_CR2_ADON;
 
 }
-
-/**
- * @brief Reads a single ADC channel.
- * @param channel ADC channel number (0–18)
- * @return 12-bit ADC conversion result
- */
 /*
 ADC_ReadChannel(0) → measure IN0 (PA0)
 
@@ -102,10 +59,6 @@ uint16_t ADC_ReadChannel(uint8_t channel)
     return (uint16_t)ADC1->DR;
 }
 
-/**
- * @brief Reads internal temperature sensor and returns temperature in Celsius.
- * @return Temperature in °C
- */
 // === Internal channels ===
 
 // Temperature sensor (channel 16)
@@ -126,10 +79,6 @@ float ADC_ReadTempSensor(void)
     return ((Vsense - V25) / Avg_Slope) + 25.0f;
 }
 
-/**
- * @brief Reads internal reference voltage (VREFINT).
- * @return Reference voltage in Volts
- */
 // VREFINT (channel 17)
 float ADC_ReadVref(void)
 {

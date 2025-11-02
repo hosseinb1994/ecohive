@@ -1,50 +1,11 @@
-/******************************************************************************
- * @file           : AM2302.c
- * @brief          : AM2302 (DHT22) Temperature and Humidity Sensor Driver
- * @author         : Hossein Baghaei
- * @date           : 29-Oct-2025
- * @version        : 1.0
- *
- * @details
- * This file contains the low-level implementation of the AM2302 (DHT22) driver
- * for STM32F4xx microcontrollers. It communicates with the sensor using a
- * single-wire protocol to retrieve temperature and humidity data with
- * precise timing control.
- *
- * The driver includes:
- *  - Start signal generation
- *  - Bit-level data reading with microsecond accuracy
- *  - Checksum validation
- *  - Conversion of raw data into temperature (°C) and humidity (%RH)
- *  - Debug logging via UART interface
- *
- * Hardware Connection:
- * -------------------------------------------------------------
- *  AM2302 Pin   | STM32F401 Pin | Description
- * -------------------------------------------------------------
- *  VDD          | 3.3V          | Power supply
- *  SDA          | PB5           | Data line (with 4.7kΩ pull-up)
- *  NC           | —             | Not connected
- *  GND          | GND           | Ground reference
- * -------------------------------------------------------------
- *
- * @note
- * - This driver uses HAL GPIO APIs and DWT cycle counter for microsecond delay.
- * - Ensure DWT is enabled for accurate timing measurement.
- * - Wait at least 2 seconds after power-up before the first read.
- * - For debugging, UART is used to print messages via Print_Message().
- *
- * @todo
- * - Add support for multiple sensor instances
- * - Integrate non-blocking read or timer-based polling
- *
- * @reference
- * - AM2302/DHT22 Datasheet, Aosong Electronics Co., Ltd.
- *
- * @copyright
- * (c) 2025 Hossein Baghaei. All rights reserved.
- ******************************************************************************/
-
+/***********************************************************
+AM2302    STM32F401
+-----    ----------
+VDD  →   3.3V
+SDA  →   PB5 (with 4.7kΩ pull-up to 3.3V)
+NC   →   Not connected
+GND  →   GND
+***********************************************************/
 
 #include "AM2302.h"
 #include "UART.h"
