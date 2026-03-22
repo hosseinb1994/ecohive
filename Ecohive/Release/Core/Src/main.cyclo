@@ -1,0 +1,14 @@
+../Core/Src/main.c:426:6:Hearth_beat_Task	3
+../Core/Src/main.c:465:6:MCU_Temperature_Task	2
+../Core/Src/main.c:486:6:MQ9_Task	2
+../Core/Src/main.c:228:6:SystemClock_Config	3
+../Core/Src/main.c:107:5:main	1
+../Core/Src/main.c:276:6:SPI2_Init	1
+../Core/Src/main.c:306:6:Update_Sensor_Data	2
+../Core/Src/main.c:514:6:AM2302_Task	4
+../Core/Src/main.c:320:9:Calculate_Checksum	2
+../Core/Src/main.c:332:6:Prepare_SPI_Data	2
+../Core/Src/main.c:353:6:SPI_Sensor_Data_Task	7
+../Core/Src/main.c:444:6:UART_Task	2
+../Core/Src/main.c:583:6:HAL_TIM_PeriodElapsedCallback	2
+../Core/Src/main.c:600:6:Error_Handler	1

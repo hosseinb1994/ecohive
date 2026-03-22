@@ -22,7 +22,7 @@
  * -------------------------------------------------------------
  *  AM2302 Pin   | STM32F401 Pin | Description
  * -------------------------------------------------------------
- *  VDD          | 3.3V          | Power supply
+ *  VDD          | 5V            | Power supply
  *  SDA          | PB5           | Data line (with 4.7kΩ pull-up)
  *  NC           | —             | Not connected
  *  GND          | GND           | Ground reference
@@ -45,180 +45,162 @@
  * (c) 2025 Hossein Baghaei. All rights reserved.
  ******************************************************************************/
 
-
 #include "AM2302.h"
 #include "UART.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 // Using PB5 for AM2302 SDA
 #define AM2302_SDA_PIN GPIO_PIN_5
 #define AM2302_SDA_PORT GPIOB
 
 // Timing definitions
-#define AM2302_START_LOW_TIME 1000  // 1ms
-#define AM2302_RESPONSE_TIMEOUT 1000
+#define AM2302_START_LOW_TIME_US 1200  // At least 1ms, using 1.2ms to be safe
+#define AM2302_RESPONSE_TIMEOUT_US 100 // Should be ~80us
 
-void delay_us(uint32_t us) {
-    us *= (SystemCoreClock / 1000000) / 3;
-    while (us--) {
-        __NOP();
-    }
+// Helper macro for DWT-based delay
+#define DWT_DELAY_US(us) do { \
+    uint32_t startTick = DWT->CYCCNT; \
+    uint32_t delayTicks = (us) * (SystemCoreClock / 1000000); \
+    while ((DWT->CYCCNT - startTick) < delayTicks); \
+} while(0)
+
+// Internal helper to read the pin state
+static inline uint8_t AM2302_ReadPin(void) {
+    return (uint8_t)HAL_GPIO_ReadPin(AM2302_SDA_PORT, AM2302_SDA_PIN);
 }
 
-void AM2302_Init(void) {
-    // Enable GPIOB clock
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-
-    // Enable DWT for timing measurements
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-    DWT->CYCCNT = 0;
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
-
-    // Debug system clock
-    char debug_buffer[64];
-    int len = sprintf(debug_buffer, "AM2302_Init - SystemCoreClock: %lu Hz\r\n", SystemCoreClock);
-    Print_Message(debug_buffer, len);
-
-    // Initial state: input with pull-up
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Pin = AM2302_SDA_PIN;
-    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    HAL_GPIO_Init(AM2302_SDA_PORT, &GPIO_InitStruct);
-
-    // Wait for sensor stabilization (>2s after power-up)
-    HAL_Delay(2500);
-}
-uint8_t AM2302_Start(void) {
-    char debug_buffer[64];
-    int len;
-
-    // Set as output low
+// Internal helper to set pin as output
+static void AM2302_SetOutput(void) {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     GPIO_InitStruct.Pin = AM2302_SDA_PIN;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     HAL_GPIO_Init(AM2302_SDA_PORT, &GPIO_InitStruct);
+}
 
-    // Pull low for start signal
-    HAL_GPIO_WritePin(AM2302_SDA_PORT, AM2302_SDA_PIN, GPIO_PIN_RESET);
-    delay_us(AM2302_START_LOW_TIME);
-
-    // Release bus (set as input)
+// Internal helper to set pin as input with pull-up
+static void AM2302_SetInput(void) {
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = AM2302_SDA_PIN;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     HAL_GPIO_Init(AM2302_SDA_PORT, &GPIO_InitStruct);
-
-    // Wait for sensor response (80us low)
-    uint32_t timeout = AM2302_RESPONSE_TIMEOUT;
-    while (HAL_GPIO_ReadPin(AM2302_SDA_PORT, AM2302_SDA_PIN) == GPIO_PIN_SET) {
-        if (--timeout == 0) {
-            len = sprintf(debug_buffer, "AM2302_Start - No response (timeout1)\r\n");
-            Print_Message(debug_buffer, len);
-            return 0;
-        }
-        delay_us(1);
-    }
-
-    len = sprintf(debug_buffer, "AM2302_Start - Got low response\r\n");
-    Print_Message(debug_buffer, len);
-
-    // Wait for response high (80us)
-    timeout = AM2302_RESPONSE_TIMEOUT;
-    while (HAL_GPIO_ReadPin(AM2302_SDA_PORT, AM2302_SDA_PIN) == GPIO_PIN_RESET) {
-        if (--timeout == 0) {
-            len = sprintf(debug_buffer, "AM2302_Start - No high response (timeout2)\r\n");
-            Print_Message(debug_buffer, len);
-            return 0;
-        }
-        delay_us(1);
-    }
-
-    len = sprintf(debug_buffer, "AM2302_Start - Success\r\n");
-    Print_Message(debug_buffer, len);
-    return 1; // Start successful
 }
 
-uint8_t AM2302_ReadBit(void) {
-    uint32_t timeout = 150;
+void AM2302_Init(void) {
+	// 1. Enable GPIOB clock safely (doesn't hurt if already on)
+	__HAL_RCC_GPIOB_CLK_ENABLE();
 
-    // Wait for line to go LOW (start of bit)
-    while (HAL_GPIO_ReadPin(AM2302_SDA_PORT, AM2302_SDA_PIN) == GPIO_PIN_SET) {
-        if (--timeout == 0) return 0xFF;
-        delay_us(1);
-    }
+	// 2. Enable DWT only if not already enabled
+	  if (!(CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk)) {
+		  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+	      DWT->CYCCNT = 0;
+	      DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+	   }
 
-    // Wait exactly 50us from the start of LOW
-    delay_us(50);
-
-    // Read the value now - if HIGH it's '1', if LOW it's '0'
-    if (HAL_GPIO_ReadPin(AM2302_SDA_PORT, AM2302_SDA_PIN) == GPIO_PIN_SET) {
-        // It's a '1' - wait for the rest of the bit time (~20us more)
-        delay_us(40);
-        return 1;
-    } else {
-        // It's a '0' - the line should go HIGH soon
-        delay_us(40);
-        return 0;
-    }
+	 // 3. Set PB5 as Input with PULLUP (Important for AM2302)
+	 AM2302_SetInput();
+    // NOTE: The initial 2s delay should be handled in the task, not here.
 }
 
-uint8_t AM2302_ReadByte(void) {
+static uint8_t AM2302_Start(void) {
+	// Ensure line is high before we start
+	    AM2302_SetInput();
+	    DWT_DELAY_US(100);
+
+	    // Pull low for 1.2ms
+	    AM2302_SetOutput();
+	    HAL_GPIO_WritePin(AM2302_SDA_PORT, AM2302_SDA_PIN, GPIO_PIN_RESET);
+	    DWT_DELAY_US(1200);
+
+	    // Release and wait for sensor
+	    HAL_GPIO_WritePin(AM2302_SDA_PORT, AM2302_SDA_PIN, GPIO_PIN_SET);
+	    AM2302_SetInput();
+
+	    // The sensor should pull low within 20-40us
+	    uint32_t timeout = 200;
+	    while (AM2302_ReadPin() == GPIO_PIN_SET) {
+	        if (--timeout == 0) return 0;
+	        DWT_DELAY_US(1);
+	    }
+
+	    // Now wait for it to go back HIGH (the 80us response pulse)
+	    timeout = 200;
+	    while (AM2302_ReadPin() == GPIO_PIN_RESET) {
+	        if (--timeout == 0) return 0;
+	        DWT_DELAY_US(1);
+	    }
+
+	    // Wait for it to go back LOW (start of data)
+	    timeout = 200;
+	    while (AM2302_ReadPin() == GPIO_PIN_SET) {
+	        if (--timeout == 0) return 0;
+	        DWT_DELAY_US(1);
+	    }
+
+	    return 1;
+}
+
+static uint8_t AM2302_ReadByte(void) {
     uint8_t byte = 0;
     for (int i = 0; i < 8; i++) {
-        byte <<= 1;
-        uint8_t bit = AM2302_ReadBit();
-        if (bit == 0xFF) {
-            char debug_buffer[64];
-            int len = sprintf(debug_buffer, "AM2302_ReadByte - Bit timeout at bit %d\r\n", i);
-            Print_Message(debug_buffer, len);
-            return 0xFF; // Timeout
+        // Wait for the start of the bit (line goes HIGH after the 50us LOW start)
+        uint32_t timeout = 100; // > 50us
+        while (AM2302_ReadPin() == GPIO_PIN_RESET) {
+            if (--timeout == 0) return 0xFF; // Timeout waiting for bit start
+            DWT_DELAY_US(1);
         }
-        byte |= bit;
+
+        // Measure the length of the HIGH pulse to determine bit value
+        // '0' is ~26-28us HIGH, '1' is ~70us HIGH
+        DWT_DELAY_US(40); // Wait past the '0' threshold
+
+        if (AM2302_ReadPin() == GPIO_PIN_SET) {
+            // It's a '1'
+            byte |= (1 << (7 - i));
+            // Wait for line to go LOW for the next bit
+            timeout = 100;
+            while (AM2302_ReadPin() == GPIO_PIN_SET) {
+                 if (--timeout == 0) return 0xFF; // Timeout
+                 DWT_DELAY_US(1);
+            }
+        }
+        // Else it's a '0', the loop will naturally wait for the next LOW-to-HIGH transition
     }
     return byte;
 }
 
 uint8_t AM2302_Read(float *temperature, float *humidity) {
-    const char start_msg[] = "AM2302_Read - Starting...\r\n";
-    Print_Message(start_msg, sizeof(start_msg)-1);
-
     uint8_t data[5] = {0};
-    char debug_buffer[128];
+
+    // --- ENTER CRITICAL SECTION ---
+    // Disable interrupts to ensure precise timing
+    taskENTER_CRITICAL();
 
     if (!AM2302_Start()) {
-        Print_Message("AM2302_Read - Start failed\r\n", 28);
-        return 0; // Communication failed
+        taskEXIT_CRITICAL();
+        return 0; // Start failed
     }
 
-    Print_Message("AM2302_Read - Start successful, reading bytes...\r\n", 47);
-
-    // Read 40 bits (5 bytes)
+    // Read 5 bytes (40 bits)
     for (int i = 0; i < 5; i++) {
         data[i] = AM2302_ReadByte();
         if (data[i] == 0xFF) {
-            int len = sprintf(debug_buffer, "AM2302_Read - Byte %d timeout\r\n", i);
-            Print_Message(debug_buffer, len);
+            taskEXIT_CRITICAL();
             return 0; // Read timeout
         }
-        int len = sprintf(debug_buffer, "AM2302_Read - Byte[%d] = 0x%02X (%u)\r\n", i, data[i], data[i]);
-        Print_Message(debug_buffer, len);
     }
 
-    // Print raw data for debugging
-    int len = sprintf(debug_buffer, "AM2302 RAW: %02X %02X %02X %02X %02X\r\n",
-                     data[0], data[1], data[2], data[3], data[4]);
-    Print_Message(debug_buffer, len);
+    // --- EXIT CRITICAL SECTION ---
+    // Re-enable interrupts
+    taskEXIT_CRITICAL();
 
     // Verify checksum
-    uint8_t checksum = data[0] + data[1] + data[2] + data[3];
-    len = sprintf(debug_buffer, "AM2302 Checksum: calc=%u, received=%u\r\n", checksum, data[4]);
-    Print_Message(debug_buffer, len);
-
-    if (checksum != data[4]) {
-        len = sprintf(debug_buffer, "AM2302_Read - CHECKSUM ERROR!\r\n");
-        Print_Message(debug_buffer, len);
+    uint8_t calc_checksum = data[0] + data[1] + data[2] + data[3];
+    if (calc_checksum != data[4]) {
         return 0; // Checksum error
     }
 
@@ -228,14 +210,11 @@ uint8_t AM2302_Read(float *temperature, float *humidity) {
 
     // Convert temperature (16-bit, MSB first)
     uint16_t temp_raw = (data[2] << 8) | data[3];
-
-    // Check for negative temperature (bit 15 = 1)
     if (temp_raw & 0x8000) {
-        *temperature = -(float)((temp_raw & 0x7FFF) / 10.0f);
+        *temperature = -((temp_raw & 0x7FFF) / 10.0f);
     } else {
         *temperature = temp_raw / 10.0f;
     }
 
-    Print_Message("AM2302_Read - Success\r\n", 23);
     return 1; // Success
 }

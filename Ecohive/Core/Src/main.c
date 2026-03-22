@@ -78,6 +78,7 @@ float current_am2302_humidity = 0.0f;
 void SystemClock_Config(void);
 
 /* USER CODE BEGIN PFP */
+void SystemCoreClockUpdate(void);
 void GPIOA_Init(void); // GPIO initialization function
 void UART_Init(void);  // UART initialization function
 void ADC_Init(void);  // ADC initialization function
@@ -124,13 +125,13 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  SystemCoreClockUpdate();
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
   //Priorities of tasks must be consider for better operation
-  xRecursiveMutex = xSemaphoreCreateMutex();
+  xRecursiveMutex = xSemaphoreCreateRecursiveMutex();
   xUARTMutex = xSemaphoreCreateMutex();
   xSPIMutex = xSemaphoreCreateMutex();
 
@@ -269,7 +270,6 @@ void SystemClock_Config(void)
 
 
 /* USER CODE BEGIN 4 */
-
 /**
   * @brief Initialize SPI2 for communication with ESP32
   */
@@ -362,7 +362,7 @@ void SPI_Sensor_Data_Task(void *pvParameters)
 
     UART_Init();
     Print_Message("SPI Sensor Data Task Started\r\n", 30);
-
+    SPI2_Init();
     while(1) {
         // Prepare the sensor data structure
         Prepare_SPI_Data(&sensor_data);
@@ -374,7 +374,7 @@ void SPI_Sensor_Data_Task(void *pvParameters)
         if(xSemaphoreTake(xSPIMutex, (TickType_t)20) == pdTRUE) {
             // Select ESP32 (set NSS low)
             GPIOC->ODR &= ~GPIO_ODR_OD0;
-
+            for(volatile int i=0; i<100; i++);
             // Send data via SPI (full duplex)
             bool success = SPI_TransmitReceive(&hspi2, tx_buffer, rx_buffer, sizeof(SensorData_t));
 
@@ -417,10 +417,6 @@ void SPI_Sensor_Data_Task(void *pvParameters)
         vTaskDelay(pdMS_TO_TICKS(SPI_DATA_RATE_MS));
     }
 }
-
-
-
-
 
 
 void Hearth_beat_Task(void *pvParameters)
@@ -467,11 +463,13 @@ void MCU_Temperature_Task(void *pvParameters)
 	UART_Init();
 	ADC_Init();
 	char buffer[64];
-	float temperature;
+	volatile float temperature;
 	while(1){
 		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
 			// Read internal temperature sensor
 			temperature = ADC_ReadTempSensor();  // °C
+			// UPDATE GLOBAL DATA HERE
+			Update_Sensor_Data(temperature, current_mq9_ppm, current_am2302_temp, current_am2302_humidity);
 			//float ADC_ReadTempSensor(void)
 			// Convert float to string
 			int len = sprintf(buffer, "Temp Value: %.2f\r\n", temperature);
@@ -497,6 +495,9 @@ void MQ9_Task(void *pvParameters)
 	            float ratio = Rs / Ro_MQ9;           // Rs/Ro
 	            float ppm = MQ9_GetPPM(ratio);       // estimated ppm
 
+	            // UPDATE GLOBAL DATA HERE
+	            Update_Sensor_Data(current_mcu_temp, ppm, current_am2302_temp, current_am2302_humidity);
+
 	            int len = sprintf(buffer,
 	                              "MQ9 raw=%u, Rs=%.1f Ohm, ratio=%.2f, ppm=%.1f\r\n",
 	                              raw, Rs, ratio, ppm);
@@ -513,38 +514,52 @@ void MQ9_Task(void *pvParameters)
 
 void AM2302_Task(void *pvParameters) {
     UART_Init();
-    AM2302_Init();
-    char buffer[128];
-    float temperature, humidity;
+    AM2302_Init(); // Initialize hardware
 
-    vTaskDelay(pdMS_TO_TICKS(2000));  // Wait for system to stabilize
+    char buffer[128];
+    float temperature = 0.0f;
+    float humidity = 0.0f;
+
+    // Wait for sensor stabilization (>2s after power-up).
+    // Use vTaskDelay in an RTOS environment.
+    Print_Message("AM2302 - Waiting for sensor stabilization...\r\n", 45);
+    vTaskDelay(pdMS_TO_TICKS(2500));
 
     Print_Message("AM2302 Task Started\r\n", 21);
 
     while(1) {
-        if(xSemaphoreTake(xUARTMutex, (TickType_t)10) == pdTRUE) {  // Use UART mutex with longer timeout
-            Print_Message("AM2302 - Attempting to read...\r\n", 31);
+        // No need for mutex here as AM2302_Read handles its own critical section
+        // and doesn't use shared resources that require a mutex.
+        // Print debug message *before* the time-sensitive read operation.
+        Print_Message("AM2302 - Attempting to read...\r\n", 31);
 
-            if (AM2302_Read(&temperature, &humidity)) {
-                // Success - format and print data
-                int len = sprintf(buffer,
-                                 "AM2302 - Temp: %.1f°C, Humidity: %.1f%%\r\n",
-                                 temperature, humidity);
+        if (AM2302_Read(&temperature, &humidity)) {
+            // Success - format and print data
+            int len = sprintf(buffer,
+                             "AM2302 - Success! Temp: %.1fC, Humidity: %.1f%%\r\n",
+                             temperature, humidity);
+
+            // Update global data for SPI task
+            Update_Sensor_Data(current_mcu_temp, current_mq9_ppm, temperature, humidity);
+
+            // Use UART mutex for printing to prevent garbled output
+            if(xSemaphoreTake(xUARTMutex, (TickType_t)10) == pdTRUE) {
                 Print_Message(buffer, len);
-            } else {
-                // Error reading sensor
-                Print_Message("AM2302 - Read error\r\n", 21);
+                xSemaphoreGive(xUARTMutex);
             }
 
-            xSemaphoreGive(xUARTMutex);
         } else {
-            Print_Message("AM2302 - Could not get UART mutex\r\n", 34);
+            // Error reading sensor
+            if(xSemaphoreTake(xUARTMutex, (TickType_t)10) == pdTRUE) {
+                Print_Message("AM2302 - Read Failed (Checksum or Timeout)\r\n", 43);
+                xSemaphoreGive(xUARTMutex);
+            }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(3000));  // 3 seconds between attempts
+        // Wait at least 2 seconds between reads as per datasheet recommendations
+        vTaskDelay(pdMS_TO_TICKS(3000));
     }
 }
-
 
 
 

@@ -1,6 +1,7 @@
-../Core/Src/AM2302.c:60:6:delay_us	16	static
-../Core/Src/AM2302.c:67:6:AM2302_Init	104	static
-../Core/Src/AM2302.c:92:9:AM2302_Start	104	static
-../Core/Src/AM2302.c:143:9:AM2302_ReadBit	16	static
-../Core/Src/AM2302.c:167:9:AM2302_ReadByte	88	static
-../Core/Src/AM2302.c:183:9:AM2302_Read	232	static
+../Core/Src/AM2302.c:69:23:AM2302_ReadPin	8	static
+../Core/Src/AM2302.c:74:13:AM2302_SetOutput	32	static
+../Core/Src/AM2302.c:84:13:AM2302_SetInput	32	static
+../Core/Src/AM2302.c:93:6:AM2302_Init	16	static
+../Core/Src/AM2302.c:109:16:AM2302_Start	56	static
+../Core/Src/AM2302.c:147:16:AM2302_ReadByte	48	static
+../Core/Src/AM2302.c:176:9:AM2302_Read	32	static

@@ -1,0 +1,9 @@
+../Core/Src/SPI.c:47:6:SPI_Init	15
+../Core/Src/SPI.c:100:6:SPI_DeInit	3
+../Core/Src/SPI.c:116:6:SPI_Transmit	10
+../Core/Src/SPI.c:144:6:SPI_Receive	10
+../Core/Src/SPI.c:178:6:SPI_TransmitReceive	12
+../Core/Src/SPI.c:216:6:SPI_CheckCRCError	3
+../Core/Src/SPI.c:225:6:SPI_ClearCRC	3
+../Core/Src/SPI.c:237:6:SPI_Enable	3
+../Core/Src/SPI.c:244:6:SPI_Disable	3
