@@ -37,7 +37,15 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 // Sensor data structure for SPI transmission
-typedef struct {
+/*typedef struct {
+    float mcu_temperature;
+    float mq9_ppm;
+    float am2302_temperature;
+    float am2302_humidity;
+    uint32_t timestamp;
+    uint8_t checksum;
+} SensorData_t;*/
+typedef struct __attribute__((packed)) {
     float mcu_temperature;
     float mq9_ppm;
     float am2302_temperature;
@@ -282,7 +290,7 @@ void SPI2_Init(void)
         .lsb_first = false,          // MSB first (standard)
         .cpol = false,               // Clock idle low
         .cpha = false,               // Data sampled on first edge
-        .crc_enable = true,          // Enable CRC for error checking
+        .crc_enable = false,          // Enable CRC for error checking
         .crc_polynomial = 0x107      // Standard CRC-8 polynomial
     };
 
@@ -365,23 +373,20 @@ void SPI_Sensor_Data_Task(void *pvParameters)
     SPI2_Init();
     while(1) {
         // Prepare the sensor data structure
-        Prepare_SPI_Data(&sensor_data);
+    	Prepare_SPI_Data(&sensor_data);
 
-        // Copy to transmission buffer
-        memcpy(tx_buffer, &sensor_data, sizeof(SensorData_t));
+    	    if(xSemaphoreTake(xSPIMutex, (TickType_t)20) == pdTRUE) {
+    	        GPIOC->ODR &= ~GPIO_ODR_OD0; // CS Low
 
-        // Send data via SPI (thread-safe)
-        if(xSemaphoreTake(xSPIMutex, (TickType_t)20) == pdTRUE) {
-            // Select ESP32 (set NSS low)
-            GPIOC->ODR &= ~GPIO_ODR_OD0;
-            for(volatile int i=0; i<100; i++);
-            // Send data via SPI (full duplex)
-            bool success = SPI_TransmitReceive(&hspi2, tx_buffer, rx_buffer, sizeof(SensorData_t));
+    	        // --- ADD THIS DELAY ---
+    	        for(volatile int i=0; i<500; i++);
 
-            // Deselect ESP32 (set NSS high)
-            GPIOC->ODR |= GPIO_ODR_OD0;
+    	        // Transmit directly from the struct pointer
+    	        bool success = SPI_TransmitReceive(&hspi2, (uint8_t*)&sensor_data, rx_buffer, sizeof(SensorData_t));
 
-            xSemaphoreGive(xSPIMutex);
+    	        for(volatile int i=0; i<500; i++);
+    	        GPIOC->ODR |= GPIO_ODR_OD0; // CS High
+    	        xSemaphoreGive(xSPIMutex);
 
             // Debug output
             if(success) {
