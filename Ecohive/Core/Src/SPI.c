@@ -40,7 +40,7 @@
 #include "SPI.h"
 
 // Private function prototypes
-static uint32_t SPI_GetPrescaler(uint32_t spi_frequency);
+static uint32_t SPI_GetPrescaler(SPI_TypeDef *Instance, uint32_t spi_frequency);
 static void SPI_GPIO_Init(SPI_TypeDef *Instance);
 static void SPI_Clock_Enable(SPI_TypeDef *Instance);
 
@@ -65,7 +65,7 @@ void SPI_Init(SPI_Handle *hspi, SPI_TypeDef *Instance, SPI_Config *config)
     hspi->Instance->CR1 &= ~SPI_CR1_SPE;
 
     // Calculate baud rate prescaler
-    uint32_t prescaler = SPI_GetPrescaler(config->spi_frequency);
+    uint32_t prescaler = SPI_GetPrescaler(Instance, config->spi_frequency);
 
     // Configure SPI CR1 register
     uint32_t cr1 = 0;
@@ -249,75 +249,68 @@ void SPI_Disable(SPI_Handle *hspi)
 }
 
 // Private functions
-static uint32_t SPI_GetPrescaler(uint32_t spi_frequency)
+static uint32_t SPI_GetPrescaler(SPI_TypeDef *Instance, uint32_t spi_frequency)
 {
-    uint32_t apb_frequency;
-
-    // Determine which APB bus the SPI is on and get its frequency
-    // For F401RE: SPI1 on APB2 (84 MHz), SPI2/3 on APB1 (42 MHz)
-    // You may need to adjust this based on your clock configuration
-    if (RCC->APB2ENR & RCC_APB2ENR_SPI1EN) {
-        apb_frequency = 84000000; // APB2 frequency
-    } else {
-        apb_frequency = 42000000; // APB1 frequency
-    }
+    // SPI1 is on APB2 (84 MHz on F401 @ 84 MHz sysclk)
+    // SPI2, SPI3 are on APB1 (42 MHz)
+    uint32_t apb_frequency = (Instance == SPI1) ? 84000000UL : 42000000UL;
 
     uint32_t divisor = apb_frequency / spi_frequency;
-
-    if (divisor <= 2) return 0;      // fPCLK/2
-    else if (divisor <= 4) return 1; // fPCLK/4
-    else if (divisor <= 8) return 2; // fPCLK/8
-    else if (divisor <= 16) return 3; // fPCLK/16
-    else if (divisor <= 32) return 4; // fPCLK/32
-    else if (divisor <= 64) return 5; // fPCLK/64
-    else if (divisor <= 128) return 6; // fPCLK/128
-    else return 7; // fPCLK/256
+    if      (divisor <= 2)   return 0;
+    else if (divisor <= 4)   return 1;
+    else if (divisor <= 8)   return 2;
+    else if (divisor <= 16)  return 3;
+    else if (divisor <= 32)  return 4;
+    else if (divisor <= 64)  return 5;
+    else if (divisor <= 128) return 6;
+    else                     return 7;
 }
 
 static void SPI_GPIO_Init(SPI_TypeDef *Instance)
 {
-    GPIO_TypeDef *gpio;
-    uint32_t pin_miso, pin_mosi, pin_sck;
-    uint32_t af;
-
     if (Instance == SPI2) {
-        // SPI2 on GPIOC: PC2=MISO, PC3=MOSI, PC10=SCK
-        RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
-        gpio = GPIOC;
-        pin_miso = 2;
-        pin_mosi = 3;
-        pin_sck = 10;
-        af = 5; // AF5 for SPI2 on these pins
-    } else if (Instance == SPI1) {
-        // Add other SPI instances as needed
-        return;
-    } else {
+        // SPI2 correct pins on STM32F401:
+        //   PB10 = SCK  (AF5)
+        //   PB14 = MISO (AF5)
+        //   PB15 = MOSI (AF5)
+        RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+        GPIO_TypeDef *gpio = GPIOB;
+        uint32_t af = 5;
+
+        // SCK = PB10 (AFR[1], index 10-8=2)
+        gpio->MODER  &= ~(3U << (10 * 2));
+        gpio->MODER  |=  (2U << (10 * 2));   // Alternate function
+        gpio->OTYPER &= ~(1U << 10);          // Push-pull
+        gpio->OSPEEDR|=  (3U << (10 * 2));    // High speed
+        gpio->PUPDR  &= ~(3U << (10 * 2));    // No pull
+        gpio->AFR[1] &= ~(0xFU << ((10 - 8) * 4));
+        gpio->AFR[1] |=  (af   << ((10 - 8) * 4));  // AF5
+
+        // MISO = PB14 (AFR[1], index 14-8=6)
+        gpio->MODER  &= ~(3U << (14 * 2));
+        gpio->MODER  |=  (2U << (14 * 2));
+        gpio->OTYPER &= ~(1U << 14);
+        gpio->OSPEEDR|=  (3U << (14 * 2));
+        gpio->PUPDR  &= ~(3U << (14 * 2));
+        gpio->PUPDR  |=  (1U << (14 * 2));    // Pull-up on MISO
+        gpio->AFR[1] &= ~(0xFU << ((14 - 8) * 4));
+        gpio->AFR[1] |=  (af   << ((14 - 8) * 4));
+
+        // MOSI = PB15 (AFR[1], index 15-8=7)
+        gpio->MODER  &= ~(3U << (15 * 2));
+        gpio->MODER  |=  (2U << (15 * 2));
+        gpio->OTYPER &= ~(1U << 15);
+        gpio->OSPEEDR|=  (3U << (15 * 2));
+        gpio->PUPDR  &= ~(3U << (15 * 2));
+        gpio->AFR[1] &= ~(0xFU << ((15 - 8) * 4));
+        gpio->AFR[1] |=  (af   << ((15 - 8) * 4));
+
+        // CS = PC0 is configured separately in SPI2_Init() — leave it there
+    }
+    else if (Instance == SPI1) {
+        // Add SPI1 here if needed later
         return;
     }
-
-    // Configure MISO (PC2)
-    gpio->MODER &= ~(3U << (pin_miso * 2));
-    gpio->MODER |= (2U << (pin_miso * 2)); // Alternate function mode
-    gpio->AFR[pin_miso >> 3] &= ~(0xF << ((pin_miso & 7) * 4));
-    gpio->AFR[pin_miso >> 3] |= (af << ((pin_miso & 7) * 4));
-
-    // Configure MOSI (PC3)
-    gpio->MODER &= ~(3U << (pin_mosi * 2));
-    gpio->MODER |= (2U << (pin_mosi * 2)); // Alternate function mode
-    gpio->AFR[pin_mosi >> 3] &= ~(0xF << ((pin_mosi & 7) * 4));
-    gpio->AFR[pin_mosi >> 3] |= (af << ((pin_mosi & 7) * 4));
-
-    // Configure SCK (PC10)
-    gpio->MODER &= ~(3U << (pin_sck * 2));
-    gpio->MODER |= (2U << (pin_sck * 2)); // Alternate function mode
-    gpio->AFR[pin_sck >> 3] &= ~(0xF << ((pin_sck & 7) * 4));
-    gpio->AFR[pin_sck >> 3] |= (af << ((pin_sck & 7) * 4));
-
-    // Configure NSS as GPIO output (you can choose any available pin)
-    // Example: Use PC0 as NSS
-    gpio->MODER &= ~(3U << (0 * 2));
-    gpio->MODER |= (1U << (0 * 2)); // Output mode
-    gpio->ODR |= (1U << 0); // Set high initially
 }
 
 static void SPI_Clock_Enable(SPI_TypeDef *Instance)

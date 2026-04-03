@@ -8,5 +8,5 @@
 ../Core/Src/SPI.c:237:6:SPI_Enable	16	static
 ../Core/Src/SPI.c:244:6:SPI_Disable	16	static
 ../Core/Src/SPI.c:252:17:SPI_GetPrescaler	24	static
-../Core/Src/SPI.c:277:13:SPI_GPIO_Init	40	static
-../Core/Src/SPI.c:323:13:SPI_Clock_Enable	16	static
+../Core/Src/SPI.c:269:13:SPI_GPIO_Init	24	static
+../Core/Src/SPI.c:316:13:SPI_Clock_Enable	16	static
