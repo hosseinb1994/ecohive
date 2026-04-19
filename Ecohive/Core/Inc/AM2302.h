@@ -47,9 +47,6 @@ extern "C" {
  * @brief Initializes the AM2302 sensor interface
  *
  * Configures GPIO pin PB5 and enables DWT cycle counter for microsecond timing.
- * Sets the data line to input mode with pull-up (idle high state).
- *
- * @note Call this function once during system initialization.
  */
 void AM2302_Init(void);
 

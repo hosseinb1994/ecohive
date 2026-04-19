@@ -73,7 +73,7 @@ void UART1_Tx_DMA_Init(void * SrcAddr, uint16_t dataSize)
 
     // Peripheral address (USART1 data register)
     DMA2_Stream7->PAR = (uint32_t)&USART1->DR;
-    // Memory address (your data source)
+    // Memory address
     DMA2_Stream7->M0AR = (uint32_t)SrcAddr;
     // Number of data to transfer
     DMA2_Stream7->NDTR = dataSize;

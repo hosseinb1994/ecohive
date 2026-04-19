@@ -38,12 +38,12 @@
 #include <math.h>   // for powf()
 #include "Math.h"   // include the header
 
-#define RL_MQ9     10000.0f   // RL value on your module, usually 10 kΩ (based on datasheet/module)
+#define RL_MQ9     10000.0f   // RL value on module, usually 10 kΩ (based on datasheet/module)
 #define VCC_MQ9    5.0f       // Sensor supply voltage
 #define VREF_MCU   3.3f       // STM32 ADC reference voltage
 #define ADC_MAX    4095.0f    // 12-bit ADC resolution
 
-// This must be determined experimentally in clean air
+// This sensor must be determined experimentally in clean air
 float Ro_MQ9 = 10000.0f; // placeholder, to be calibrated
 
 /**
@@ -64,7 +64,6 @@ float MQ9_GetRs(uint16_t adc_raw)
 float MQ9_GetPPM(float Rs_Ro)
 {
     // These curve values depend on datasheet log-log plots
-    // Example: log(ppm) = (log(Rs/Ro) - b) / m
     // For CO (from MQ9 datasheet curve approximation):
     float m = -0.654;
     float b = 1.699;

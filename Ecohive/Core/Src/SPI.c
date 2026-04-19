@@ -147,7 +147,7 @@ bool SPI_Receive(SPI_Handle *hspi, uint8_t *pData, uint16_t Size)
         return false;
     }
 
-    // For receive-only, we need to send dummy data
+    // For receive-only, dummy data need to be sent
     for (uint16_t i = 0; i < Size; i++) {
         // Wait until TX buffer is empty
         while (!(hspi->Instance->SR & SPI_SR_TXE));
@@ -251,8 +251,6 @@ void SPI_Disable(SPI_Handle *hspi)
 // Private functions
 static uint32_t SPI_GetPrescaler(SPI_TypeDef *Instance, uint32_t spi_frequency)
 {
-    // SPI1 is on APB2 (84 MHz on F401 @ 84 MHz sysclk)
-    // SPI2, SPI3 are on APB1 (42 MHz)
     uint32_t apb_frequency = (Instance == SPI1) ? 84000000UL : 42000000UL;
 
     uint32_t divisor = apb_frequency / spi_frequency;
@@ -269,7 +267,7 @@ static uint32_t SPI_GetPrescaler(SPI_TypeDef *Instance, uint32_t spi_frequency)
 static void SPI_GPIO_Init(SPI_TypeDef *Instance)
 {
     if (Instance == SPI2) {
-        // SPI2 correct pins on STM32F401:
+        // SPI2 pins on STM32F401:
         //   PB10 = SCK  (AF5)
         //   PB14 = MISO (AF5)
         //   PB15 = MOSI (AF5)
@@ -305,10 +303,10 @@ static void SPI_GPIO_Init(SPI_TypeDef *Instance)
         gpio->AFR[1] &= ~(0xFU << ((15 - 8) * 4));
         gpio->AFR[1] |=  (af   << ((15 - 8) * 4));
 
-        // CS = PC0 is configured separately in SPI2_Init() — leave it there
+        // CS = PC0 is configured separately in SPI2_Init()
     }
     else if (Instance == SPI1) {
-        // Add SPI1 here if needed later
+        //SPI1
         return;
     }
 }

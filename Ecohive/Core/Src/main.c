@@ -24,8 +24,8 @@
 /* USER CODE BEGIN Includes */
 #include "FreeRTOS.h"
 #include "semphr.h"
-#include <stdlib.h>  //rand()
-#include <stdio.h>   //sprintf()
+#include <stdlib.h>
+#include <stdio.h>
 #include "GPIO.h"
 #include "UART.h"
 #include "ADC.h"
@@ -37,14 +37,6 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 // Sensor data structure for SPI transmission
-/*typedef struct {
-    float mcu_temperature;
-    float mq9_ppm;
-    float am2302_temperature;
-    float am2302_humidity;
-    uint32_t timestamp;
-    uint8_t checksum;
-} SensorData_t;*/
 typedef struct __attribute__((packed)) {
     float mcu_temperature;
     float mq9_ppm;
@@ -138,7 +130,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
-  //Priorities of tasks must be consider for better operation
   xRecursiveMutex = xSemaphoreCreateRecursiveMutex();
   xUARTMutex = xSemaphoreCreateMutex();
   xSPIMutex = xSemaphoreCreateMutex();
@@ -171,15 +162,15 @@ int main(void)
         		  NULL);
   xTaskCreate(AM2302_Task,
               	  "AM2302 Sensor",
-				  256,    // Increased stack for sensor operations
+				  256,
 				  NULL,
-				  1,      // Same priority as other sensor tasks
+				  1,
 				  NULL);
   xTaskCreate(SPI_Sensor_Data_Task,
                   "SPI Sensor Data",
-                  512,  // Larger stack for SPI operations
+                  512,
                   NULL,
-                  2,    // Higher priority to ensure timely data transmission
+                  2,
                   NULL);
 
   vTaskStartScheduler();
@@ -215,9 +206,6 @@ int main(void)
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
-
-
-  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -348,7 +336,7 @@ void Prepare_SPI_Data(SensorData_t *sensor_data)
         xSemaphoreGive(xSPIMutex);
     }
 
-    // Add timestamp (FreeRTOS tick count converted to milliseconds)
+    //FreeRTOS tick count converted to milliseconds
     sensor_data->timestamp = xTaskGetTickCount() * portTICK_PERIOD_MS;
 
     // Calculate checksum
@@ -365,7 +353,7 @@ void SPI_Sensor_Data_Task(void *pvParameters)
     uint8_t tx_buffer[sizeof(SensorData_t)];
     uint8_t rx_buffer[sizeof(SensorData_t)];
 
-    // Wait a bit for other sensors to start producing data
+    // Wait for other sensors to start producing data
     vTaskDelay(pdMS_TO_TICKS(3000));
 
     UART_Init();
@@ -378,7 +366,7 @@ void SPI_Sensor_Data_Task(void *pvParameters)
     	    if(xSemaphoreTake(xSPIMutex, (TickType_t)20) == pdTRUE) {
     	        GPIOC->ODR &= ~GPIO_ODR_OD0; // CS Low
 
-    	        // --- ADD THIS DELAY ---
+    	        // --- ADD DELAY ---
     	        for(volatile int i=0; i<500; i++);
 
     	        // Transmit directly from the struct pointer
@@ -473,7 +461,7 @@ void MCU_Temperature_Task(void *pvParameters)
 		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
 			// Read internal temperature sensor
 			temperature = ADC_ReadTempSensor();  // °C
-			// UPDATE GLOBAL DATA HERE
+			// UPDATE GLOBAL DATA
 			Update_Sensor_Data(temperature, current_mq9_ppm, current_am2302_temp, current_am2302_humidity);
 			//float ADC_ReadTempSensor(void)
 			// Convert float to string
@@ -500,7 +488,7 @@ void MQ9_Task(void *pvParameters)
 	            float ratio = Rs / Ro_MQ9;           // Rs/Ro
 	            float ppm = MQ9_GetPPM(ratio);       // estimated ppm
 
-	            // UPDATE GLOBAL DATA HERE
+	            // UPDATE GLOBAL DATA
 	            Update_Sensor_Data(current_mcu_temp, ppm, current_am2302_temp, current_am2302_humidity);
 
 	            int len = sprintf(buffer,
@@ -526,16 +514,13 @@ void AM2302_Task(void *pvParameters) {
     float humidity = 0.0f;
 
     // Wait for sensor stabilization (>2s after power-up).
-    // Use vTaskDelay in an RTOS environment.
+    //vTaskDelay in an RTOS environment.
     Print_Message("AM2302 - Waiting for sensor stabilization...\r\n", 45);
     vTaskDelay(pdMS_TO_TICKS(2500));
 
     Print_Message("AM2302 Task Started\r\n", 21);
 
     while(1) {
-        // No need for mutex here as AM2302_Read handles its own critical section
-        // and doesn't use shared resources that require a mutex.
-        // Print debug message *before* the time-sensitive read operation.
         Print_Message("AM2302 - Attempting to read...\r\n", 31);
 
         if (AM2302_Read(&temperature, &humidity)) {
@@ -547,7 +532,7 @@ void AM2302_Task(void *pvParameters) {
             // Update global data for SPI task
             Update_Sensor_Data(current_mcu_temp, current_mq9_ppm, temperature, humidity);
 
-            // Use UART mutex for printing to prevent garbled output
+            // UART mutex is used for printing to prevent garbled output
             if(xSemaphoreTake(xUARTMutex, (TickType_t)10) == pdTRUE) {
                 Print_Message(buffer, len);
                 xSemaphoreGive(xUARTMutex);

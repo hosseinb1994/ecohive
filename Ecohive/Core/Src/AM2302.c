@@ -55,7 +55,7 @@
 #define AM2302_SDA_PORT GPIOB
 
 // Timing definitions
-#define AM2302_START_LOW_TIME_US 1200  // At least 1ms, using 1.2ms to be safe
+#define AM2302_START_LOW_TIME_US 1200  // At least 1ms, 1.2ms is more safe
 #define AM2302_RESPONSE_TIMEOUT_US 100 // Should be ~80us
 
 // Helper macro for DWT-based delay
@@ -103,11 +103,10 @@ void AM2302_Init(void) {
 
 	 // 3. Set PB5 as Input with PULLUP (Important for AM2302)
 	 AM2302_SetInput();
-    // NOTE: The initial 2s delay should be handled in the task, not here.
 }
 
 static uint8_t AM2302_Start(void) {
-	// Ensure line is high before we start
+	// Line should be high before start
 	    AM2302_SetInput();
 	    DWT_DELAY_US(100);
 
