@@ -1,0 +1,72 @@
+<svg width="700" height="520" viewBox="0 0 700 520" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">
+
+  <rect width="700" height="520" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="350" y="30" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a1a1a">STM32F401RE — firmware architecture</text>
+
+  <!-- FreeRTOS container -->
+  <rect x="30" y="50" width="640" height="340" rx="12" fill="#f0f4ff" stroke="#4a6fa5" stroke-width="1.5" stroke-dasharray="6 3"/>
+  <text x="50" y="72" font-size="12" font-weight="bold" fill="#4a6fa5">FreeRTOS kernel — 5 concurrent tasks</text>
+
+  <!-- Task boxes -->
+  <rect x="50" y="85" width="115" height="56" rx="6" fill="#dbeafe" stroke="#3b82f6" stroke-width="1"/>
+  <text x="107" y="107" text-anchor="middle" font-size="11" font-weight="bold" fill="#1e3a6e">Heartbeat task</text>
+  <text x="107" y="123" text-anchor="middle" font-size="10" fill="#1e40af">PA5 LED blink</text>
+  <text x="107" y="136" text-anchor="middle" font-size="10" fill="#1e40af">recursive mutex</text>
+
+  <rect x="185" y="85" width="115" height="56" rx="6" fill="#dbeafe" stroke="#3b82f6" stroke-width="1"/>
+  <text x="242" y="107" text-anchor="middle" font-size="11" font-weight="bold" fill="#1e3a6e">MCU temp task</text>
+  <text x="242" y="123" text-anchor="middle" font-size="10" fill="#1e40af">ADC ch16 + ch17</text>
+  <text x="242" y="136" text-anchor="middle" font-size="10" fill="#1e40af">factory cal formula</text>
+
+  <rect x="320" y="85" width="115" height="56" rx="6" fill="#dbeafe" stroke="#3b82f6" stroke-width="1"/>
+  <text x="377" y="107" text-anchor="middle" font-size="11" font-weight="bold" fill="#1e3a6e">MQ-9 task</text>
+  <text x="377" y="123" text-anchor="middle" font-size="10" fill="#1e40af">ADC ch0 (PA0)</text>
+  <text x="377" y="136" text-anchor="middle" font-size="10" fill="#1e40af">Rs/Ro → ppm</text>
+
+  <rect x="455" y="85" width="115" height="56" rx="6" fill="#dbeafe" stroke="#3b82f6" stroke-width="1"/>
+  <text x="512" y="107" text-anchor="middle" font-size="11" font-weight="bold" fill="#1e3a6e">AM2302 task</text>
+  <text x="512" y="123" text-anchor="middle" font-size="10" fill="#1e40af">PB5 single-wire</text>
+  <text x="512" y="136" text-anchor="middle" font-size="10" fill="#1e40af">40-bit protocol</text>
+
+  <!-- Shared sensor data store -->
+  <rect x="160" y="175" width="270" height="44" rx="6" fill="#e0f2fe" stroke="#0284c7" stroke-width="1"/>
+  <text x="295" y="193" text-anchor="middle" font-size="11" font-weight="bold" fill="#0c4a6e">Shared sensor data (global floats)</text>
+  <text x="295" y="210" text-anchor="middle" font-size="10" fill="#0369a1">protected by xSPIMutex (FreeRTOS)</text>
+
+  <!-- Arrows from tasks to shared data -->
+  <line x1="107" y1="141" x2="200" y2="175" stroke="#3b82f6" stroke-width="1" marker-end="url(#arr)"/>
+  <line x1="242" y1="141" x2="260" y2="175" stroke="#3b82f6" stroke-width="1" marker-end="url(#arr)"/>
+  <line x1="377" y1="141" x2="330" y2="175" stroke="#3b82f6" stroke-width="1" marker-end="url(#arr)"/>
+  <line x1="512" y1="141" x2="390" y2="175" stroke="#3b82f6" stroke-width="1" marker-end="url(#arr)"/>
+
+  <!-- SPI task -->
+  <rect x="185" y="250" width="220" height="56" rx="6" fill="#ede9fe" stroke="#7c3aed" stroke-width="1"/>
+  <text x="295" y="272" text-anchor="middle" font-size="11" font-weight="bold" fill="#3b0764">SPI sensor data task</text>
+  <text x="295" y="288" text-anchor="middle" font-size="10" fill="#5b21b6">prio 2 — every 2 s — packed struct</text>
+  <text x="295" y="302" text-anchor="middle" font-size="10" fill="#5b21b6">XOR checksum — SPI2 master</text>
+
+  <line x1="295" y1="219" x2="295" y2="250" stroke="#0284c7" stroke-width="1" marker-end="url(#arr)"/>
+
+  <!-- Custom drivers box -->
+  <rect x="50" y="335" width="590" height="44" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+  <text x="345" y="353" text-anchor="middle" font-size="11" font-weight="bold" fill="#78350f">Custom bare-metal drivers (register-level, no HAL)</text>
+  <text x="345" y="370" text-anchor="middle" font-size="10" fill="#92400e">ADC.c  |  UART.c (DMA)  |  SPI.c  |  GPIO.c  |  AM2302.c  |  Math.c</text>
+
+  <line x1="295" y1="306" x2="295" y2="335" stroke="#7c3aed" stroke-width="1" marker-end="url(#arr)"/>
+
+  <!-- Output -->
+  <rect x="185" y="420" width="220" height="52" rx="8" fill="#d1fae5" stroke="#059669" stroke-width="1.5"/>
+  <text x="295" y="442" text-anchor="middle" font-size="11" font-weight="bold" fill="#064e3b">SPI output to ESP32</text>
+  <text x="295" y="458" text-anchor="middle" font-size="10" fill="#065f46">PB10 SCK / PB14 MISO / PB15 MOSI</text>
+  <text x="295" y="472" text-anchor="middle" font-size="10" fill="#065f46">PC0 CS — 1 MHz — Mode 0</text>
+
+  <line x1="295" y1="379" x2="295" y2="420" stroke="#d97706" stroke-width="1" marker-end="url(#arr)"/>
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#555" stroke-width="1.5" stroke-linecap="round"/>
+    </marker>
+  </defs>
+</svg>
