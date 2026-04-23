@@ -5,7 +5,7 @@ The project is **developed and deployed using STM32CubeIDE**, with project manag
 
 ---
 
-## 🧩 Overview
+## Overview
 
 The system reads multiple sensors (gas, temperature, humidity) and sends their data to an **ESP32** via **SPI**.  
 The ESP32 then transmits the collected data to the **AWS IoT Cloud** using **Wi-Fi (MQTT)** protocol. Firmware for ESP32 can be found in repo named **Ecohive_ESP32**. 
@@ -14,13 +14,13 @@ All software development and deployment are done via **STM32CubeIDE**.
 
 ---
 
-## 🗺️ System Architecture
+## System Architecture
 
 ![Ecohive system architecture](Ecohive_diagram.svg)
 
 ---
 
-## ⚙️ Hardware Requirements
+## Hardware Requirements
 
 | Component | Description |
 |------------|-------------|
@@ -32,7 +32,7 @@ All software development and deployment are done via **STM32CubeIDE**.
 
 ---
 
-## 🧠 System Details
+## System Details
 
 ### Sensor & Peripheral Connections
 
@@ -81,7 +81,7 @@ typedef struct __attribute__((packed)) {
 
 ---
 
-## 🧾 Features
+## Features
 
 - Developed entirely in **Bare-Metal C (register-level programming)** — no STM32 HAL used for peripheral drivers
 - **FreeRTOS** handles five concurrent tasks with mutex-protected shared sensor data
@@ -93,7 +93,7 @@ typedef struct __attribute__((packed)) {
 
 ---
 
-## 🧱 Software Stack
+## Software Stack
 
 | Layer | Technology |
 |-------|------------|
@@ -107,15 +107,15 @@ typedef struct __attribute__((packed)) {
 
 ---
 
-## 🧑‍💻 Author
-
-**Hossein Baghaei**
-
----
-
-## 🪄 Future Improvements
+## Future Improvements
 
 - Add OTA firmware updates via ESP32
 - Build AWS IoT Rule → DynamoDB for persistent data logging
 - Build AWS dashboard for real-time visualization
 - Implement SD card data logging for offline analysis
+
+---
+## Author
+
+Hossein Baghaei — embedded systems engineer  
+Built: 2025–2026
