@@ -8,7 +8,7 @@ The project is **developed and deployed using STM32CubeIDE**, with project manag
 ## 🧩 Overview
 
 The system reads multiple sensors (gas, temperature, humidity) and sends their data to an **ESP32** via **SPI**.  
-The ESP32 then transmits the collected data to the **AWS IoT Cloud** using **Wi-Fi (MQTT)** protocol. (Firmware for ESP32 can be found in repo named **Ecohive_ESP32**)
+The ESP32 then transmits the collected data to the **AWS IoT Cloud** using **Wi-Fi (MQTT)** protocol. Firmware for ESP32 can be found in repo named **Ecohive_ESP32**. 
 A UART terminal provides local monitoring, and a heartbeat LED indicates system health.  
 All software development and deployment are done via **STM32CubeIDE**.
 
