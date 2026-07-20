@@ -14,7 +14,7 @@ The ARM firmware (`cmake --build build/Debug`) and the host test suite
 - **`MQ9_GetPPM()` didn't guard against a non-finite `Rs_Ro`.** When
   `MQ9_GetRs()` returns `INFINITY` (sensor disconnected / near-zero ADC
   reading), `MQ9_GetPPM()` used to silently return **0 ppm** instead of an
-  error value — a sensor fault was indistinguishable from "clean air."
+  error value a sensor fault was indistinguishable from "clean air."
   - Why it returned 0 and not infinity: `m` is negative, so
     `log10f(inf) = +inf`, and `(+inf - b) / m` flips sign to `-inf`, and
     `powf(10, -inf) == 0`.
@@ -28,7 +28,7 @@ The ARM firmware (`cmake --build build/Debug`) and the host test suite
 - `ADC_ReadTempSensor()` divided by `vref_raw` (channel 17 reading) with no
   zero-check, going infinite if that channel ever read 0.
   **Fix**: added `if (vref_raw == 0) return NAN;`.
-- `ADC_ReadChannel()` had an unbounded `while (!(ADC1->SR & ADC_SR_EOC));` —
+- `ADC_ReadChannel()` had an unbounded `while (!(ADC1->SR & ADC_SR_EOC));`
   could hang forever if a conversion never completed.
   **Fix**: added a bounded timeout that returns `0xFFFF` (outside the valid
   12-bit range) on timeout.
@@ -39,7 +39,7 @@ The ARM firmware (`cmake --build build/Debug`) and the host test suite
   claiming "Tested on STM32F401RE (SPI1, SPI2)".
   **Fix**: implemented the SPI1 pin mapping (PA5=SCK, PA6=MISO, PA7=MOSI,
   AF5), mirroring the existing SPI2 block.
-- `SPI.h` declared `SPI_SetNSS()` but it was never implemented in `SPI.c` —
+- `SPI.h` declared `SPI_SetNSS()` but it was never implemented in `SPI.c`,
   a link error waiting to happen. Checked actual usage in `main.c`:
   chip-select is (and always was) driven directly as a plain GPIO pin
   (`GPIOC->ODR`), and `SPI_Handle`/`SPI_Config` have no NSS pin field to
@@ -47,7 +47,7 @@ The ARM firmware (`cmake --build build/Debug`) and the host test suite
   than invent an unused feature; left a comment pointing at the actual
   CS-handling pattern in `main.c`.
 - `SPI_GetPrescaler()` computed `apb_frequency / spi_frequency` with no
-  zero-check — divide-by-zero if `spi_frequency == 0`.
+  zero-check divide-by-zero if `spi_frequency == 0`.
   **Fix**: returns the slowest prescaler (7) as a safe fallback instead of
   dividing.
 
@@ -57,7 +57,7 @@ The ARM firmware (`cmake --build build/Debug`) and the host test suite
   USART1/DMA2 Stream7, matching the "UART1" name). **Fix**: renamed the
   header declaration to `UART1_Tx_DMA_Init` to match the implementation.
 - `Print_Message()` did `strcpy(First_Data->Data, SrcAddr)` into a fixed
-  100-byte buffer with no length check — a buffer overflow if the source
+  100-byte buffer with no length check, a buffer overflow if the source
   string was ≥100 bytes; `dataSize` was accepted but never used to bound
   the copy. **Fix**: now uses `memcpy` bounded to `sizeof(Data) - 1`,
   explicitly null-terminates, and stores the clamped length.
@@ -72,7 +72,7 @@ The ARM firmware (`cmake --build build/Debug`) and the host test suite
 ### Scope note
 Everything except `Math.c` is tightly coupled to STM32 registers/HAL, so
 none of the above (besides the `Math.c` fix) could be exercised by a host
-unit test without a register-mocking layer — they were verified instead by
+unit test without a register-mocking layer, they were verified instead by
 rebuilding the real ARM firmware target (`cmake --build build/Debug`) after
 each change and confirming it still links cleanly.
 
@@ -127,13 +127,13 @@ ctest --test-dir Test/build --output-on-failure
 1. Install the **CMake Tools** extension (`ms-vscode.cmake-tools`) if not
    already installed. The repo root's `CMakeLists.txt` is pinned to the
    `arm-none-eabi` cross-compiler (`cmake/gcc-arm-none-eabi.cmake`) for the
-   firmware build, so it can't run tests on your machine — `Test/` is a
+   firmware build, so it can't run tests on your machine, `Test/` is a
    second, independent CMake project that uses your regular host `gcc`.
 2. Point CMake Tools at `Test/` as the CMake source directory (via the
    `cmake.sourceDirectory` setting, or the Command Palette →
    **CMake: Select Configure Preset**), then **CMake: Build**.
 3. Once configured, tests are auto-discovered by CMake Tools and show up in
-   the **Testing** sidebar (flask icon) — run or debug individual cases from
+   the **Testing** sidebar (flask icon), run or debug individual cases from
    there.
 4. Alternatively, the **C/C++ TestMate** extension reads Unity's
    `PASS`/`FAIL` output directly and lists tests without needing CTest
