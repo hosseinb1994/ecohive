@@ -39,6 +39,16 @@
 extern float Ro_MQ9;  // global calibration variable
 
 /**
+ * @brief Sentinel ppm value returned by MQ9_GetPPM() when the Rs/Ro ratio
+ *        is invalid (sensor fault, shorted/rail-stuck ADC input, etc).
+ * @note  Always a normal finite float (never NaN/Inf), and always < 0, so a
+ *        fault can never silently leak a non-finite value into logging/CSV
+ *        output while still being guaranteed to trip FaultDetect's RANGE
+ *        check (ppm < 0).
+ */
+#define MQ9_PPM_INVALID (-1.0f)
+
+/**
  * @brief Computes the sensor resistance (Rs) from raw ADC measurement.
  * @param adc_raw Raw ADC value from the analog output (0–4095 for 12-bit ADC).
  * @return Calculated sensor resistance in ohms.

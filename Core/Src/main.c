@@ -32,6 +32,9 @@
 #include "Math.h"
 #include "AM2302.h"
 #include "SPI.h"
+#include "FaultDetect.h"
+#include "SD_Log.h"
+#include "fault_models.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,6 +53,10 @@ typedef struct __attribute__((packed)) {
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define SPI_DATA_RATE_MS 2000  // Send data every 2 seconds
+
+// One CSV measurement row printed over UART per this interval (~5-10s per
+// the paper data-collection spec). Tune as needed.
+#define CSV_LOG_INTERVAL_MS 7000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -72,6 +79,10 @@ float current_mcu_temp = 0.0f;
 float current_mq9_ppm = 0.0f;
 float current_am2302_temp = 0.0f;
 float current_am2302_humidity = 0.0f;
+
+// MQ-9 raw ADC + fault-detection bitfield for the CSV log (not sent over SPI)
+uint16_t current_mq9_raw = 0;
+uint8_t current_mq9_quality = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,9 +105,14 @@ void MCU_Temperature_Task(void *pvParameters);
 void MQ9_Task(void *pvParameters);
 void AM2302_Task(void *pvParameters);
 void SPI_Sensor_Data_Task(void *pvParameters);
+void CSV_Log_Task(void *pvParameters);
+#if ENABLE_BENCH
+void Bench_Task(void *pvParameters);
+#endif
 
 // Helper functions
 void Update_Sensor_Data(float mcu_temp, float mq9, float am2302_temp, float am2302_hum);
+void Update_MQ9_Diagnostics(uint16_t raw_adc, uint8_t quality_flags);
 uint8_t Calculate_Checksum(uint8_t *data, uint32_t size);
 void Prepare_SPI_Data(SensorData_t *sensor_data);
 /* USER CODE END 0 */
@@ -166,12 +182,39 @@ int main(void)
 				  NULL,
 				  1,
 				  NULL);
+
+  // SPI_Sensor_Data_Task (ESP32 link) is intentionally NOT started for the
+  // Nucleo-only / UART-CSV paper data run: it shares SPI2 + PC0 with the
+  // microSD wiring in Part 3, and its debug prints would otherwise interleave
+  // with the CSV log on UART. The function and its SPI/ESP32 logic are left
+  // untouched below - re-enable this xTaskCreate to go back to ESP32 mode.
+  /*
   xTaskCreate(SPI_Sensor_Data_Task,
                   "SPI Sensor Data",
                   512,
                   NULL,
                   2,
                   NULL);
+  */
+
+  xTaskCreate(CSV_Log_Task,
+                  "CSV Log",
+                  384,
+                  NULL,
+                  1,
+                  NULL);
+
+#if ENABLE_BENCH
+  // One-shot inference-latency benchmark for the active fault_classify()
+  // model (see Core/Inc/bench_config.h). Set ENABLE_BENCH to 0 there to
+  // compile this out once you're done collecting numbers.
+  xTaskCreate(Bench_Task,
+                  "Bench",
+                  384,
+                  NULL,
+                  1,
+                  NULL);
+#endif
 
   vTaskStartScheduler();
   /* USER CODE END 2 */
@@ -291,9 +334,9 @@ void SPI2_Init(void)
     GPIOC->OTYPER &= ~GPIO_OTYPER_OT_0;   // Push-pull output
     GPIOC->ODR |= GPIO_ODR_OD0;           // Start with NSS high (slave not selected)
 
-    // Print initialization message
+    // Print initialization message ("#" prefix = debug output, not a CSV row)
     UART_Init();
-    Print_Message("SPI2 Initialized for ESP32 communication\r\n", 41);
+    Print_Message("# SPI2 Initialized for ESP32 communication\r\n", 44);
 }
 
 /**
@@ -306,6 +349,20 @@ void Update_Sensor_Data(float mcu_temp, float mq9, float am2302_temp, float am23
         current_mq9_ppm = mq9;
         current_am2302_temp = am2302_temp;
         current_am2302_humidity = am2302_hum;
+        xSemaphoreGive(xSPIMutex);
+    }
+}
+
+/**
+  * @brief Update MQ-9 raw ADC + fault-detection flags (thread-safe).
+  *        Reuses xSPIMutex since it already guards this same group of
+  *        "latest sensor snapshot" globals.
+  */
+void Update_MQ9_Diagnostics(uint16_t raw_adc, uint8_t quality_flags)
+{
+    if(xSemaphoreTake(xSPIMutex, (TickType_t)10) == pdTRUE) {
+        current_mq9_raw = raw_adc;
+        current_mq9_quality = quality_flags;
         xSemaphoreGive(xSPIMutex);
     }
 }
@@ -350,14 +407,13 @@ void SPI_Sensor_Data_Task(void *pvParameters)
 {
     char debug_buffer[128];
     SensorData_t sensor_data;
-    uint8_t tx_buffer[sizeof(SensorData_t)];
     uint8_t rx_buffer[sizeof(SensorData_t)];
 
     // Wait for other sensors to start producing data
     vTaskDelay(pdMS_TO_TICKS(3000));
 
     UART_Init();
-    Print_Message("SPI Sensor Data Task Started\r\n", 30);
+    Print_Message("# SPI Sensor Data Task Started\r\n", 32);
     SPI2_Init();
     while(1) {
         // Prepare the sensor data structure
@@ -376,10 +432,10 @@ void SPI_Sensor_Data_Task(void *pvParameters)
     	        GPIOC->ODR |= GPIO_ODR_OD0; // CS High
     	        xSemaphoreGive(xSPIMutex);
 
-            // Debug output
+            // Debug output ("#" prefix = debug output, not a CSV row)
             if(success) {
                 int len = sprintf(debug_buffer,
-                    "SPI Sent: MCU:%.1fC, MQ9:%.1fppm, DHT:%.1fC/%.1f%%\r\n",
+                    "# SPI Sent: MCU:%.1fC, MQ9:%.1fppm, DHT:%.1fC/%.1f%%\r\n",
                     sensor_data.mcu_temperature,
                     sensor_data.mq9_ppm,
                     sensor_data.am2302_temperature,
@@ -391,7 +447,7 @@ void SPI_Sensor_Data_Task(void *pvParameters)
                 }
             } else {
                 if(xSemaphoreTake(xUARTMutex, (TickType_t)10) == pdTRUE) {
-                    Print_Message("SPI Transmission Failed\r\n", 26);
+                    Print_Message("# SPI Transmission Failed\r\n", 27);
                     xSemaphoreGive(xUARTMutex);
                 }
             }
@@ -399,7 +455,7 @@ void SPI_Sensor_Data_Task(void *pvParameters)
             // Check for CRC errors
             if(SPI_CheckCRCError(&hspi2)) {
                 if(xSemaphoreTake(xUARTMutex, (TickType_t)10) == pdTRUE) {
-                    Print_Message("SPI CRC Error Detected\r\n", 25);
+                    Print_Message("# SPI CRC Error Detected\r\n", 26);
                     xSemaphoreGive(xUARTMutex);
                 }
                 SPI_ClearCRC(&hspi2);
@@ -416,14 +472,28 @@ void Hearth_beat_Task(void *pvParameters)
 {
 	GPIOA_Init();
 	UART_Init();
-	const char Hearth_beat[] = "Heart beat\r\n";
+	const char Hearth_beat[] = "# Heart beat\r\n";
 	while(1){
 		if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
+			// LED doubles as an SD-card status indicator (Part 3): a normal
+			// slow 5s/5s heartbeat means "alive, SD fine (or SD logging
+			// disabled)"; a fast blink means the SD card has failed - both
+			// are visible across a room without needing a serial monitor.
+			uint32_t on_delay_ms = 5000;
+			uint32_t off_delay_ms = 5000;
+			if (SD_Log_GetStatus() == SD_LOG_FAILED) {
+				on_delay_ms = 150;
+				off_delay_ms = 150;
+			}
+
 			Hearth_beat_ON();
-			Print_Message(Hearth_beat, sizeof(Hearth_beat)-1);
-			vTaskDelay(pdMS_TO_TICKS(1000));
+			if(xSemaphoreTake(xUARTMutex, (TickType_t)20) == pdTRUE) {
+				Print_Message((void *)Hearth_beat, sizeof(Hearth_beat)-1);
+				xSemaphoreGive(xUARTMutex);
+			}
+			vTaskDelay(pdMS_TO_TICKS(on_delay_ms));
 			Hearth_beat_OFF();
-			vTaskDelay(pdMS_TO_TICKS(500));
+			vTaskDelay(pdMS_TO_TICKS(off_delay_ms));
 			xSemaphoreGiveRecursive(xRecursiveMutex);
 		}
 		vTaskDelay(1);
@@ -464,10 +534,13 @@ void MCU_Temperature_Task(void *pvParameters)
 			// UPDATE GLOBAL DATA
 			Update_Sensor_Data(temperature, current_mq9_ppm, current_am2302_temp, current_am2302_humidity);
 			//float ADC_ReadTempSensor(void)
-			// Convert float to string
-			int len = sprintf(buffer, "Temp Value: %.2f\r\n", temperature);
+			// Convert float to string ("#" prefix = debug output, not a CSV row)
+			int len = sprintf(buffer, "# Temp Value: %.2f\r\n", temperature);
 			// Send over UART
-			Print_Message(buffer, len);
+			if(xSemaphoreTake(xUARTMutex, (TickType_t)20) == pdTRUE) {
+				Print_Message(buffer, len);
+				xSemaphoreGive(xUARTMutex);
+			}
 			vTaskDelay(pdMS_TO_TICKS(1000));
 			xSemaphoreGiveRecursive(xRecursiveMutex);
 		}
@@ -478,7 +551,8 @@ void MQ9_Task(void *pvParameters)
 {
 	UART_Init();
 	    ADC_Init();
-	    char buffer[64];
+	    FaultDetect_Init();
+	    char buffer[160];
 
 	    while(1){
 	        if(xSemaphoreTakeRecursive(xRecursiveMutex, (TickType_t)5) == pdTRUE){
@@ -488,14 +562,42 @@ void MQ9_Task(void *pvParameters)
 	            float ratio = Rs / Ro_MQ9;           // Rs/Ro
 	            float ppm = MQ9_GetPPM(ratio);       // estimated ppm
 
-	            // UPDATE GLOBAL DATA
+	            // Rule-based fault check for this measurement cycle (MQ-9 only)
+	            uint8_t quality_flags = FaultDetect_Update(raw, ppm);
+
+	            // Build the 5-feature vector for the on-device ML classifier,
+	            // in the exact order fault_models.h expects: {raw, ppm, mcu_t,
+	            // am_t, hum}. mcu_t/am_t/hum come from the latest snapshot
+	            // published by MCU_Temperature_Task / AM2302_Task, read the
+	            // same way CSV_Log_Task does (xSPIMutex-guarded).
+	            float fm_x[FM_N_FEATURES];
+	            fm_x[0] = (float)raw;
+	            fm_x[1] = ppm;
+	            if(xSemaphoreTake(xSPIMutex, (TickType_t)10) == pdTRUE) {
+	                fm_x[2] = current_mcu_temp;
+	                fm_x[3] = current_am2302_temp;
+	                fm_x[4] = current_am2302_humidity;
+	                xSemaphoreGive(xSPIMutex);
+	            } else {
+	                fm_x[2] = current_mcu_temp;
+	                fm_x[3] = current_am2302_temp;
+	                fm_x[4] = current_am2302_humidity;
+	            }
+	            int fm_class = fault_classify(fm_x);
+
+	            // UPDATE GLOBAL DATA (ppm for the SPI struct, raw+flags for the CSV log)
 	            Update_Sensor_Data(current_mcu_temp, ppm, current_am2302_temp, current_am2302_humidity);
+	            Update_MQ9_Diagnostics(raw, quality_flags);
 
+	            // "#" prefix marks this as debug output, not a CSV data row
 	            int len = sprintf(buffer,
-	                              "MQ9 raw=%u, Rs=%.1f Ohm, ratio=%.2f, ppm=%.1f\r\n",
-	                              raw, Rs, ratio, ppm);
+	                              "# MQ9 raw=%u, Rs=%.1f Ohm, ratio=%.2f, ppm=%.1f, quality_flags=%u, ml_class=%s\r\n",
+	                              raw, Rs, ratio, ppm, quality_flags, FM_CLASS_NAMES[fm_class]);
 
-	            Print_Message(buffer, len);
+	            if(xSemaphoreTake(xUARTMutex, (TickType_t)20) == pdTRUE) {
+	                Print_Message(buffer, len);
+	                xSemaphoreGive(xUARTMutex);
+	            }
 
 	            vTaskDelay(pdMS_TO_TICKS(1000));
 	            xSemaphoreGiveRecursive(xRecursiveMutex);
@@ -515,18 +617,28 @@ void AM2302_Task(void *pvParameters) {
 
     // Wait for sensor stabilization (>2s after power-up).
     //vTaskDelay in an RTOS environment.
-    Print_Message("AM2302 - Waiting for sensor stabilization...\r\n", 45);
+    // "#" prefix on all debug lines below marks them as non-CSV output
+    if(xSemaphoreTake(xUARTMutex, (TickType_t)20) == pdTRUE) {
+        Print_Message("# AM2302 - Waiting for sensor stabilization...\r\n", 48);
+        xSemaphoreGive(xUARTMutex);
+    }
     vTaskDelay(pdMS_TO_TICKS(2500));
 
-    Print_Message("AM2302 Task Started\r\n", 21);
+    if(xSemaphoreTake(xUARTMutex, (TickType_t)20) == pdTRUE) {
+        Print_Message("# AM2302 Task Started\r\n", 23);
+        xSemaphoreGive(xUARTMutex);
+    }
 
     while(1) {
-        Print_Message("AM2302 - Attempting to read...\r\n", 31);
+        if(xSemaphoreTake(xUARTMutex, (TickType_t)20) == pdTRUE) {
+            Print_Message("# AM2302 - Attempting to read...\r\n", 34);
+            xSemaphoreGive(xUARTMutex);
+        }
 
         if (AM2302_Read(&temperature, &humidity)) {
             // Success - format and print data
             int len = sprintf(buffer,
-                             "AM2302 - Success! Temp: %.1fC, Humidity: %.1f%%\r\n",
+                             "# AM2302 - Success! Temp: %.1fC, Humidity: %.1f%%\r\n",
                              temperature, humidity);
 
             // Update global data for SPI task
@@ -541,7 +653,7 @@ void AM2302_Task(void *pvParameters) {
         } else {
             // Error reading sensor
             if(xSemaphoreTake(xUARTMutex, (TickType_t)10) == pdTRUE) {
-                Print_Message("AM2302 - Read Failed (Checksum or Timeout)\r\n", 43);
+                Print_Message("# AM2302 - Read Failed (Checksum or Timeout)\r\n", 46);
                 xSemaphoreGive(xUARTMutex);
             }
         }
@@ -551,8 +663,169 @@ void AM2302_Task(void *pvParameters) {
     }
 }
 
+/**
+  * @brief Prints the CSV data log: one header line at startup, then one CSV
+  *        measurement row every CSV_LOG_INTERVAL_MS, combining the latest
+  *        snapshot from all other sensor tasks.
+  *
+  *        Column order (fixed): timestamp_ms,raw_mq9_adc,computed_ppm,
+  *        mcu_temp_c,am2302_temp_c,humidity_pct,quality_flags
+  *
+  *        Each row is built into a single local buffer with one sprintf()
+  *        call, then emitted as a single Print_Message() call while holding
+  *        xUARTMutex for its entire duration - this is what makes a row
+  *        atomic: no other task's debug output can land in the middle of it.
+  */
+void CSV_Log_Task(void *pvParameters)
+{
+    UART_Init();
+
+    char line[128];
+
+    // Header printed exactly once at startup, and written once to a fresh
+    // /ECOHIVE/LOG_XXXX.CSV file on the microSD card (Part 3). SD_Log_Init()
+    // is a no-op when ENABLE_SD_LOGGING is 0.
+    int header_len = sprintf(line,
+        "timestamp_ms,raw_mq9_adc,computed_ppm,mcu_temp_c,am2302_temp_c,humidity_pct,quality_flags\r\n");
+    if(xSemaphoreTake(xUARTMutex, (TickType_t)50) == pdTRUE) {
+        Print_Message(line, header_len);
+        xSemaphoreGive(xUARTMutex);
+    }
+    SD_Log_Init(line, (uint16_t)header_len);
+
+    while(1) {
+        // Snapshot the latest values published by the other sensor tasks.
+        // Defaults cover the (rare) case the mutex take below times out.
+        float mcu_temp = 0.0f, mq9_ppm = MQ9_PPM_INVALID, am2302_temp = 0.0f, am2302_hum = 0.0f;
+        uint16_t mq9_raw = 0;
+        uint8_t quality_flags = 0;
+
+        if(xSemaphoreTake(xSPIMutex, (TickType_t)10) == pdTRUE) {
+            mcu_temp      = current_mcu_temp;
+            mq9_ppm       = current_mq9_ppm;
+            am2302_temp   = current_am2302_temp;
+            am2302_hum    = current_am2302_humidity;
+            mq9_raw       = current_mq9_raw;
+            quality_flags = current_mq9_quality;
+            xSemaphoreGive(xSPIMutex);
+        }
+
+        uint32_t timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+
+        // mq9_ppm can never be NaN/Inf here: MQ9_GetPPM() always returns a
+        // finite value (MQ9_PPM_INVALID sentinel on fault), so %.2f below
+        // can never print "nan"/"inf" into the CSV.
+        int len = sprintf(line, "%lu,%u,%.2f,%.2f,%.2f,%.2f,%u\r\n",
+                           (unsigned long)timestamp_ms,
+                           mq9_raw,
+                           mq9_ppm,
+                           mcu_temp,
+                           am2302_temp,
+                           am2302_hum,
+                           quality_flags);
+
+        if(xSemaphoreTake(xUARTMutex, (TickType_t)50) == pdTRUE) {
+            Print_Message(line, len);
+            xSemaphoreGive(xUARTMutex);
+        }
+
+        // Same buffer, same bytes, written to the SD card too (Part 3) so
+        // the file always matches what you saw live over UART. No-op when
+        // ENABLE_SD_LOGGING is 0; internally retries/recovers on its own
+        // and never blocks this task indefinitely on a card fault.
+        SD_Log_WriteRow(line, (uint16_t)len);
+
+        vTaskDelay(pdMS_TO_TICKS(CSV_LOG_INTERVAL_MS));
+    }
+}
 
 
+#if ENABLE_BENCH
+/**
+  * @brief Enables the DWT cycle counter if it isn't already running.
+  *        Never resets/re-zeroes CYCCNT if some other part of the code has
+  *        already turned it on - Bench_Task only ever reads the *delta*
+  *        between two CYCCNT snapshots, so an already-running counter is
+  *        fine to measure against as-is.
+  */
+static void Bench_EnableDWT(void)
+{
+    if (!(DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk)) {
+        CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+        DWT->CYCCNT = 0;
+        DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+    }
+}
+
+/**
+  * @brief One-shot inference-latency benchmark for the active fault_classify()
+  *        model (MODEL_TREE / MODEL_LOGREG / MODEL_MLP, selected in
+  *        Core/Inc/bench_config.h). Runs BENCH_ITERATIONS calls back-to-back
+  *        inside a FreeRTOS critical section (so no other task/ISR can
+  *        preempt mid-loop and pollute the cycle count), reports the total,
+  *        the average cycles/call, and the average microseconds/call at
+  *        BENCH_SYSCLK_HZ, then deletes itself - it only ever needs to run
+  *        once per boot.
+  *
+  *        Line format (parseable, one line, "#BENCH" prefix so it's easy to
+  *        grep out of the UART log alongside the other "#"-prefixed debug
+  *        lines):
+  *          #BENCH model=<name> iterations=<n> total_cycles=<n> avg_cycles=<f> avg_us=<f> sysclk_hz=<n>
+  */
+void Bench_Task(void *pvParameters)
+{
+    (void)pvParameters;
+    UART_Init();
+
+    // Let the startup prints from the other tasks (heartbeat, sensor inits)
+    // clear out first so the #BENCH line isn't interleaved mid-boot.
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    Bench_EnableDWT();
+
+    // Fixed representative feature vector. The benchmark measures per-call
+    // CPU/inference overhead, not classification accuracy - for all three
+    // models here (fixed-depth tree, fixed-size matrix multiply, fixed-size
+    // MLP forward pass) the per-call cost does not depend on which class is
+    // returned, so a single fixed input is a fair, repeatable timing probe.
+    static const float x[FM_N_FEATURES] = {967.7f, 144.0f, 29.6f, 26.0f, 57.9f};
+    volatile int sink = 0;
+
+    // Critical section: disables interrupts/preemption for the timed loop
+    // only, so the measured cycles are exactly fault_classify()'s own cost -
+    // not diluted or spiked by the RTOS tick, another task, or (if
+    // ENABLE_SD_LOGGING were left on) an SD card write landing mid-loop.
+    taskENTER_CRITICAL();
+    uint32_t cycles_start = DWT->CYCCNT;
+    for (uint32_t i = 0; i < BENCH_ITERATIONS; i++) {
+        sink = fault_classify(x);
+    }
+    uint32_t cycles_end = DWT->CYCCNT;
+    taskEXIT_CRITICAL();
+    (void)sink;
+
+    uint32_t total_cycles = cycles_end - cycles_start;
+    float avg_cycles = (float)total_cycles / (float)BENCH_ITERATIONS;
+    float avg_us = avg_cycles / ((float)BENCH_SYSCLK_HZ / 1000000.0f);
+
+    char buf[160];
+    int len = sprintf(buf,
+        "#BENCH model=%s iterations=%lu total_cycles=%lu avg_cycles=%.1f avg_us=%.3f sysclk_hz=%lu\r\n",
+        FM_MODEL_NAME,
+        (unsigned long)BENCH_ITERATIONS,
+        (unsigned long)total_cycles,
+        avg_cycles,
+        avg_us,
+        (unsigned long)BENCH_SYSCLK_HZ);
+
+    if(xSemaphoreTake(xUARTMutex, (TickType_t)200) == pdTRUE) {
+        Print_Message(buf, len);
+        xSemaphoreGive(xUARTMutex);
+    }
+
+    vTaskDelete(NULL);
+}
+#endif /* ENABLE_BENCH */
 
 /* USER CODE END 4 */
 

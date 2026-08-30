@@ -63,16 +63,22 @@ void test_MQ9_GetRs_MaxADC_MatchesDividerFormula(void)
 
 /* --- MQ9_GetPPM --------------------------------------------------------- */
 
-void test_MQ9_GetPPM_ZeroRatio_ReturnsNaN(void)
+void test_MQ9_GetPPM_ZeroRatio_ReturnsInvalidSentinel(void)
 {
     /* Rs_Ro == 0 isn't physically possible for two real resistances, so it
-     * must be flagged as invalid rather than silently reported as 0 ppm. */
-    TEST_ASSERT_TRUE(isnan(MQ9_GetPPM(0.0f)));
+     * must be flagged as invalid rather than silently reported as 0 ppm.
+     * Fixed: MQ9_GetPPM() used to return NAN here; it now returns the
+     * defined MQ9_PPM_INVALID sentinel (-1.0f) instead, so a fault can
+     * never leak a NaN into downstream logging/CSV/ML data (a NaN would
+     * corrupt a CSV row and break the ML pipeline's dataset). */
+    TEST_ASSERT_TRUE(isfinite(MQ9_GetPPM(0.0f)));
+    TEST_ASSERT_EQUAL_FLOAT(MQ9_PPM_INVALID, MQ9_GetPPM(0.0f));
 }
 
-void test_MQ9_GetPPM_NegativeRatio_ReturnsNaN(void)
+void test_MQ9_GetPPM_NegativeRatio_ReturnsInvalidSentinel(void)
 {
-    TEST_ASSERT_TRUE(isnan(MQ9_GetPPM(-1.0f)));
+    TEST_ASSERT_TRUE(isfinite(MQ9_GetPPM(-1.0f)));
+    TEST_ASSERT_EQUAL_FLOAT(MQ9_PPM_INVALID, MQ9_GetPPM(-1.0f));
 }
 
 void test_MQ9_GetPPM_RatioOfOne_MatchesCurveFormula(void)
@@ -91,15 +97,18 @@ void test_MQ9_GetPPM_TypicalRatio_MatchesCurveFormula(void)
     TEST_ASSERT_FLOAT_WITHIN(expected_ppm * 0.001f, expected_ppm, MQ9_GetPPM(ratio));
 }
 
-void test_MQ9_GetPPM_InfiniteRatio_ReturnsNaN(void)
+void test_MQ9_GetPPM_InfiniteRatio_ReturnsInvalidSentinel(void)
 {
-    /* Fixed: MQ9_GetRs() can return INFINITY on a near-zero ADC reading
-     * (disconnected sensor / fault). MQ9_GetPPM() now rejects any
-     * non-finite Rs_Ro and returns NAN instead of silently computing
-     * "0 ppm" (which used to be indistinguishable from a genuine clean-air
+    /* MQ9_GetRs() can return INFINITY on a near-zero ADC reading
+     * (disconnected sensor / fault). MQ9_GetPPM() rejects any non-finite
+     * Rs_Ro and returns MQ9_PPM_INVALID instead of silently computing
+     * "0 ppm" (which would be indistinguishable from a genuine clean-air
      * reading, since log10f(inf) flips sign after dividing by the
-     * negative curve constant m, giving powf(10, -inf) == 0). */
-    TEST_ASSERT_TRUE(isnan(MQ9_GetPPM(INFINITY)));
+     * negative curve constant m, giving powf(10, -inf) == 0). Returning a
+     * finite negative sentinel instead of NAN means this can never
+     * corrupt a downstream CSV/ML dataset. */
+    TEST_ASSERT_TRUE(isfinite(MQ9_GetPPM(INFINITY)));
+    TEST_ASSERT_EQUAL_FLOAT(MQ9_PPM_INVALID, MQ9_GetPPM(INFINITY));
 }
 
 /* --- Runner --------------------------------------------------------- */
@@ -113,11 +122,11 @@ int main(void)
     RUN_TEST(test_MQ9_GetRs_MidRangeADC_MatchesDividerFormula);
     RUN_TEST(test_MQ9_GetRs_MaxADC_MatchesDividerFormula);
 
-    RUN_TEST(test_MQ9_GetPPM_ZeroRatio_ReturnsNaN);
-    RUN_TEST(test_MQ9_GetPPM_NegativeRatio_ReturnsNaN);
+    RUN_TEST(test_MQ9_GetPPM_ZeroRatio_ReturnsInvalidSentinel);
+    RUN_TEST(test_MQ9_GetPPM_NegativeRatio_ReturnsInvalidSentinel);
     RUN_TEST(test_MQ9_GetPPM_RatioOfOne_MatchesCurveFormula);
     RUN_TEST(test_MQ9_GetPPM_TypicalRatio_MatchesCurveFormula);
-    RUN_TEST(test_MQ9_GetPPM_InfiniteRatio_ReturnsNaN);
+    RUN_TEST(test_MQ9_GetPPM_InfiniteRatio_ReturnsInvalidSentinel);
 
     return UNITY_END();
 }

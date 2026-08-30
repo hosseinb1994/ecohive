@@ -70,10 +70,20 @@ float MQ9_GetPPM(float Rs_Ro)
     float ratio = Rs_Ro;
 
     // Reject non-physical/invalid ratios (e.g. Rs_Ro == INFINITY when
-    // MQ9_GetRs() hit a sensor fault). Silently returning 0 here would make
-    // a fault indistinguishable from a genuine "clean air" reading.
-    if (!isfinite(ratio) || ratio <= 0) return NAN;
+    // MQ9_GetRs() hit a sensor fault, or a shorted/rail-stuck ADC input).
+    // Returning MQ9_PPM_INVALID (a defined, always-finite, always-negative
+    // sentinel) instead of NAN/INFINITY means a fault can never silently
+    // corrupt downstream logging/CSV/ML data, while still being
+    // distinguishable from a genuine "clean air" reading and guaranteed to
+    // trip FaultDetect's RANGE check (ppm < 0).
+    if (!isfinite(ratio) || ratio <= 0) return MQ9_PPM_INVALID;
 
     float ppm_log = (log10f(ratio) - b) / m;
-    return powf(10, ppm_log);
+    float ppm = powf(10, ppm_log);
+
+    // Belt-and-suspenders: an extreme but finite ratio could still produce
+    // a non-finite result out of log10f/powf. Never let that escape either.
+    if (!isfinite(ppm)) return MQ9_PPM_INVALID;
+
+    return ppm;
 }

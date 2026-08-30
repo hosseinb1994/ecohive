@@ -15,8 +15,13 @@ target_link_options(${BUILD_UNIT_0_NAME} PRIVATE ${CUBE_CMAKE_EXE_LINKER_FLAGS})
 target_sources(${BUILD_UNIT_0_NAME} PRIVATE
     "Core/Src/ADC.c"
     "Core/Src/AM2302.c"
+    "Core/Src/FaultDetect.c"
+    "Core/Src/fault_models.c"
     "Core/Src/GPIO.c"
     "Core/Src/Math.c"
+    "Core/Src/SD_SPI.c"
+    "Core/Src/SD_Log.c"
+    "Core/Src/diskio.c"
     "Core/Src/SPI.c"
     "Core/Src/UART.c"
     "Core/Src/freertos.c"
@@ -56,6 +61,7 @@ target_sources(${BUILD_UNIT_0_NAME} PRIVATE
     "Middlewares/Third_Party/FreeRTOS/Source/stream_buffer.c"
     "Middlewares/Third_Party/FreeRTOS/Source/tasks.c"
     "Middlewares/Third_Party/FreeRTOS/Source/timers.c"
+    "Middlewares/Third_Party/FatFs/src/ff.c"
 )
 
 target_include_directories(${BUILD_UNIT_0_NAME} PRIVATE
@@ -65,6 +71,7 @@ target_include_directories(${BUILD_UNIT_0_NAME} PRIVATE
     "Middlewares/Third_Party/FreeRTOS/Source/include"
     "Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2"
     "Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F"
+    "Middlewares/Third_Party/FatFs/src"
     "Drivers/CMSIS/Device/ST/STM32F4xx/Include"
     "Drivers/CMSIS/Include"
 )
